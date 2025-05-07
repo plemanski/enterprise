@@ -17,4 +17,9 @@
       <UniqueIdentifier>{f3f372ca-f713-4597-8183-d30fdb47a833}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\GameApp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
 </Project>

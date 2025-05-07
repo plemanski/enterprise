@@ -7,6 +7,11 @@ extern Enterprise::Application* Enterprise::CreateApplication();
 
 int main(int argc, char** argv)
 {
+    Enterprise::Log::Init();
+    EE_CORE_INFO("Initialized Log");
+    EE_TRACE("Testing macros");
+    
+    
     auto app = Enterprise::CreateApplication();
     app -> Run();
     delete app;
