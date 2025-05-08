@@ -4,7 +4,7 @@ namespace Enterprise
 {
     Application::Application()
     {
-        
+        m_window = std::unique_ptr<Window>(Window::Create());
     }
 
     Application::~Application()
@@ -13,6 +13,6 @@ namespace Enterprise
 
     void Application::Run()
     {
-        while(true);
+        while (true);
     }
 }

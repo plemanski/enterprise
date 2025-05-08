@@ -12,8 +12,10 @@ add_executable(${TargetName} "${ENTERPRISE_GAME_SOURCE}")
 
 target_include_directories(EnterpriseGame PUBLIC "${CMAKE_SOURCE_DIR}/EnterpriseEngine/src")
 target_include_directories(EnterpriseGame PUBLIC "${CMAKE_SOURCE_DIR}/EnterpriseEngine/vendor/spdlog/include")
+target_include_directories("${TargetName}" PUBLIC "${CMAKE_SOURCE_DIR}/vendor/imgui")
+target_link_directories("${TargetName}" PUBLIC "${CMAKE_SOURCE_DIR}/vendor/imgui/backends")
 
-target_compile_definitions("${TargetName}" PUBLIC EE_PLATFORM_WINDOWS)
+target_compile_definitions(EnterpriseGame PUBLIC EE_PLATFORM_WINDOWS)
 
 target_link_libraries(EnterpriseGame PUBLIC EnterpriseEngine)
 

@@ -20,7 +20,6 @@ namespace Enterprise
         static std::shared_ptr<spdlog::logger> s_CoreLogger;
         static std::shared_ptr<spdlog::logger> s_ClientLogger;
     };    
-}
 
 //Core Log Macros
 #define EE_CORE_TRACE(...) ::Enterprise::Log::GetCoreLogger()->trace(__VA_ARGS__)
@@ -33,3 +32,5 @@ namespace Enterprise
 #define EE_INFO(...)  ::Enterprise::Log::GetClientLogger()->info(__VA_ARGS__)
 #define EE_WARN(...)  ::Enterprise::Log::GetClientLogger()->warn(__VA_ARGS__)
 #define EE_ERROR(...) ::Enterprise::Log::GetClientLogger()->error(__VA_ARGS__)
+
+}
