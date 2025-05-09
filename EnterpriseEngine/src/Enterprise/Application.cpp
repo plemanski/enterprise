@@ -13,6 +13,6 @@ namespace Enterprise
 
     void Application::Run()
     {
-        while (true);
+        while (m_window->PumpEvents());
     }
 }

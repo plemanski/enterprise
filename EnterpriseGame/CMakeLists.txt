@@ -8,7 +8,10 @@ set (FullOutputDir "${CMAKE_HOME_DIRECTORY}/bin/${CMAKE_BUILD_TYPE}-${CMAKE_CXX_
 
 file(GLOB_RECURSE ENTERPRISE_GAME_SOURCE CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
-add_executable(${TargetName} "${ENTERPRISE_GAME_SOURCE}")
+add_executable(${TargetName} WIN32 "${ENTERPRISE_GAME_SOURCE}")
+
+# Credit: Mike Marcin (https://mikemarcin.com/posts/win32_without_winmain/)
+set_target_properties( ${TargetName} PROPERTIES LINK_FLAGS "/ENTRY:\"mainCRTStartup\"" )
 
 target_include_directories(EnterpriseGame PUBLIC "${CMAKE_SOURCE_DIR}/EnterpriseEngine/src")
 target_include_directories(EnterpriseGame PUBLIC "${CMAKE_SOURCE_DIR}/EnterpriseEngine/vendor/spdlog/include")

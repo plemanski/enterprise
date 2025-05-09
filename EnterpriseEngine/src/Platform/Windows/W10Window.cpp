@@ -2,7 +2,13 @@
 // Created by Peter on 5/7/2025.
 //
 
+#include <algorithm>
+
 #include "W10Window.h"
+
+#include "Log.h"
+#include "Events/EventManager.h"
+
 
 namespace Enterprise {
 
@@ -10,7 +16,11 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 W10Window::W10Window(const WindowProps &props)
 {
-    W10Window::Init(props);
+    m_Data = {};
+    m_Data.Title = props.Title;
+    m_Data.Width = props.Width;
+    m_Data.Height = props.Height;
+    m_Data.pauseAppWhenInactive = true;
 }
 
 void W10Window::OnUpdate()
@@ -26,45 +36,8 @@ bool W10Window::IsVSync() const
     return false;
 }
 
-std::unique_ptr<Window> Window::Create(const WindowProps &props)
-{
-    return std::make_unique<W10Window>(props);
-}
-
-void W10Window::Init(const WindowProps &props)
-{
-
-    RegisterWindowClass(nullptr, L"TestWindow");
-    m_windowHandle =  CreateW10Window(L"TestWindow", nullptr, L"Test Window",props.Width, props.Height);
-}
-
-void W10Window::Shutdown()
-{
-}
-
-void W10Window::RegisterWindowClass( HINSTANCE hInst, const wchar_t* windowClassName )
-{
-    // Register a window class for creating our render window with.
-    m_wc = {};
-
-    m_wc.cbSize = sizeof(WNDCLASSEX);
-    m_wc.style = CS_HREDRAW | CS_VREDRAW;
-    m_wc.lpfnWndProc = &WndProc;
-    m_wc.cbClsExtra = 0;
-    m_wc.cbWndExtra = 0;
-    m_wc.hInstance = hInst;
-    m_wc.hIcon = ::LoadIcon(hInst, NULL);
-    m_wc.hCursor = ::LoadCursor(NULL, IDC_ARROW);
-    m_wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    m_wc.lpszMenuName = NULL;
-    m_wc.lpszClassName = windowClassName;
-    m_wc.hIconSm = ::LoadIcon(hInst, NULL);
-
-    static ATOM atom = ::RegisterClassExW(&m_wc);
-}
-
-HWND W10Window::CreateW10Window(const wchar_t* windowClassName, HINSTANCE hInst, const wchar_t* windowTitle,
-    uint32_t width, uint32_t height)
+HWND CreateW10Window(const wchar_t* windowClassName, HINSTANCE hInst, const wchar_t* windowTitle,
+                                uint32_t width, uint32_t height, LPVOID lParam)
 {
     int screenWidth = ::GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = ::GetSystemMetrics(SM_CYSCREEN);
@@ -78,7 +51,7 @@ HWND W10Window::CreateW10Window(const wchar_t* windowClassName, HINSTANCE hInst,
     int windowX = std::max<int>(0, (screenWidth - windowWidth) / 2);
     int windowY = std::max<int>(0, (screenHeight - windowHeight) / 2);
     HWND hWnd = ::CreateWindowExW(
-        NULL,
+        WS_EX_OVERLAPPEDWINDOW,
         windowClassName,
         windowTitle,
         WS_OVERLAPPEDWINDOW,
@@ -86,26 +59,195 @@ HWND W10Window::CreateW10Window(const wchar_t* windowClassName, HINSTANCE hInst,
         windowY,
         windowWidth,
         windowHeight,
-        NULL,
+        HWND_DESKTOP,
         NULL,
         hInst,
-        nullptr
+        lParam
     );
+    if (!hWnd)
+    {
+        EE_CORE_ERROR(GetLastError());
+    }
 
     return hWnd;
 }
 
+std::unique_ptr<Window> Window::Create(const WindowProps& props)
+{
+    auto window = std::make_unique<W10Window>(props);
 
-LRESULT WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+    // Initialize Window class
+    WNDCLASSEXW wc = {};
+
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc = &WndProc;
+    wc.cbClsExtra = 0;
+    wc.cbWndExtra = 0;
+    wc.hInstance = GetModuleHandle(nullptr);
+    wc.hIcon = ::LoadIcon(GetModuleHandle(nullptr), NULL);
+    wc.hCursor = ::LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.lpszMenuName = NULL;
+    wc.lpszClassName = L"TestWindow";
+    wc.hIconSm = nullptr;
+
+    static auto wndClassAtom = ::RegisterClassExW(&wc);
+    auto hWnd =  CreateW10Window(L"TestWindow", GetModuleHandle(nullptr), L"Test Window",props.Width, props.Height, window.get());
+
+    ::ShowWindow(window->GetWindowHandle(), SW_SHOWDEFAULT);
+    ::UpdateWindow(window->GetWindowHandle());
+    return window;
+}
+
+void W10Window::Init(const WindowProps &props)
 {
 
-    switch (msg)
+    ::ShowWindow(m_windowHandle, SW_SHOWDEFAULT);
+    ::UpdateWindow(m_windowHandle);
+}
+
+void W10Window::Shutdown()
+{
+}
+
+void W10Window::RegisterWindowClass( HINSTANCE hInst, const wchar_t* windowClassName )
+{
+    // Register a window class for creating our render window with.
+
+}
+
+
+LRESULT W10Window::ProcessMessage(UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    switch(msg)
     {
-        case VK_ESCAPE:
-            ::PostQuitMessage(0);
+        // Credit: Mike Marcin
+        case WM_ACTIVATEAPP:
+        {
+            if (m_Data.pauseAppWhenInactive)
+            {
+                const bool isBecomingActive = (wParam == TRUE);
+                const auto priorityClass = isBecomingActive ? NORMAL_PRIORITY_CLASS : IDLE_PRIORITY_CLASS;
+                SetPriorityClass(GetCurrentProcess(), priorityClass);
+            }
             break;
+        }
+        case WM_PAINT:
+        {
+            PAINTSTRUCT ps;
+            std::ignore = BeginPaint(m_windowHandle, &ps);
+            EndPaint(m_windowHandle, &ps);
+            break;
+        }
+        case WM_SIZING:
+        {
+            // maintain aspec ratio when resizing
+            auto& rect = *reinterpret_cast<RECT*>(lParam);
+            const float aspectRatio = float(m_Data.Width) / m_Data.Height;
+            const DWORD style = GetWindowLong(m_windowHandle, GWL_STYLE);
+            const DWORD exStyle = GetWindowLong(m_windowHandle, GWL_EXSTYLE);
+
+            RECT emptyRect{};
+            AdjustWindowRectEx(&emptyRect, style, false, exStyle);
+            rect.left -= emptyRect.left;
+            rect.right -= emptyRect.right;
+            rect.top -= emptyRect.top;
+            rect.bottom -= emptyRect.bottom;
+
+            auto newWidth = std::max(rect.right - rect.left, MinWidth);
+            auto newHeight = std::max(rect.bottom - rect.top, MinHeight);
+
+            switch (wParam) {
+                case WMSZ_LEFT:
+                    newHeight = static_cast<LONG>(newWidth / aspectRatio);
+                    rect.left = rect.right - newWidth;
+                    rect.bottom = rect.top + newHeight;
+                    break;
+                case WMSZ_RIGHT:
+                    newHeight = static_cast<LONG>(newWidth / aspectRatio);
+                    rect.right = rect.left + newWidth;
+                    rect.bottom = rect.top + newHeight;
+                    break;
+                case WMSZ_TOP:
+                case WMSZ_TOPRIGHT:
+                    newWidth = static_cast<LONG>(newHeight * aspectRatio);
+                    rect.right = rect.left + newWidth;
+                    rect.top = rect.bottom - newHeight;
+                    break;
+                case WMSZ_BOTTOM:
+                case WMSZ_BOTTOMRIGHT:
+                    newWidth = static_cast<LONG>(newHeight * aspectRatio);
+                    rect.right = rect.left + newWidth;
+                    rect.bottom = rect.top + newHeight;
+                    break;
+                case WMSZ_TOPLEFT:
+                    newWidth = static_cast<LONG>(newHeight * aspectRatio);
+                    rect.left = rect.right - newWidth;
+                    rect.top = rect.bottom - newHeight;
+                    break;
+                case WMSZ_BOTTOMLEFT:
+                    newWidth = static_cast<LONG>(newHeight * aspectRatio);
+                    rect.left = rect.right - newWidth;
+                    rect.bottom = rect.top + newHeight;
+                    break;
+            }
+            AdjustWindowRectEx(&rect, style, false, exStyle);
+            return TRUE;
+        }
+        case WM_NCDESTROY:
+        {
+            PostQuitMessage(0);
+            m_windowHandle = nullptr;
+            SetWindowLongPtr(m_windowHandle, GWLP_USERDATA, LONG_PTR(0));
+            break;
+        }
+        default:
+            return DefWindowProc(m_windowHandle, msg, wParam, lParam);
     }
-    return 0;
+    return DefWindowProc(m_windowHandle, msg, wParam, lParam);
+}
+
+bool W10Window::PumpEvents() const
+{
+    MSG msg{};
+    while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+    {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+        if (msg.message == WM_QUIT)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+
+
+// Set GWLP_USERDATA as a pointer to W10Window on WM_NCCREATE, otherwise get pointer to window and call ProcessMessage
+LRESULT WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    W10Window* self = nullptr;
+
+    if (msg != WM_NCCREATE)
+    {
+        self = reinterpret_cast<W10Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+    } else
+    {
+        CREATESTRUCT *createStruct = reinterpret_cast<CREATESTRUCT*>(lParam);
+        self = reinterpret_cast<W10Window*>(createStruct->lpCreateParams);
+        self->SetWindowHandle(hWnd);
+        SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
+    }
+
+    if (self != nullptr)
+    {
+        return self->ProcessMessage(msg, wParam, lParam);
+    }
+    return DefWindowProc(hWnd, msg, wParam, lParam);
+
 }
 
 
