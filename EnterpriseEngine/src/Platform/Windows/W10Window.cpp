@@ -7,6 +7,7 @@
 #include "W10Window.h"
 
 #include "Log.h"
+#include "Events/ApplicationEvent.h"
 #include "Events/EventManager.h"
 
 
@@ -94,15 +95,16 @@ std::unique_ptr<Window> Window::Create(const WindowProps& props)
 
     static auto wndClassAtom = ::RegisterClassExW(&wc);
     auto hWnd =  CreateW10Window(L"TestWindow", GetModuleHandle(nullptr), L"Test Window",props.Width, props.Height, window.get());
-
-    ::ShowWindow(window->GetWindowHandle(), SW_SHOWDEFAULT);
-    ::UpdateWindow(window->GetWindowHandle());
+    if (hWnd == nullptr)
+    {
+        EE_CORE_ERROR("Window handle is null.");
+    }
+    window->SetWindowHandle(hWnd);
     return window;
 }
 
 void W10Window::Init(const WindowProps &props)
 {
-
     ::ShowWindow(m_windowHandle, SW_SHOWDEFAULT);
     ::UpdateWindow(m_windowHandle);
 }
@@ -118,6 +120,8 @@ void W10Window::RegisterWindowClass( HINSTANCE hInst, const wchar_t* windowClass
 }
 
 
+// Some events borrowed from Mike Marcin:
+// https://mikemarcin.com/posts/letsmake_engine_02_windowhttps://mikemarcin.com/posts/letsmake_engine_02_window//
 LRESULT W10Window::ProcessMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch(msg)
@@ -135,11 +139,11 @@ LRESULT W10Window::ProcessMessage(UINT msg, WPARAM wParam, LPARAM lParam)
         }
         case WM_PAINT:
         {
-            PAINTSTRUCT ps;
-            std::ignore = BeginPaint(m_windowHandle, &ps);
-            EndPaint(m_windowHandle, &ps);
+            events::TriggerEvent(events::AppRenderEvent());
+            events::TriggerEvent(events::AppUpdateEvent());
             break;
         }
+        // Credit: Mike Marcin
         case WM_SIZING:
         {
             // maintain aspec ratio when resizing
@@ -222,9 +226,6 @@ bool W10Window::PumpEvents() const
     }
     return true;
 }
-
-
-
 
 // Set GWLP_USERDATA as a pointer to W10Window on WM_NCCREATE, otherwise get pointer to window and call ProcessMessage
 LRESULT WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)

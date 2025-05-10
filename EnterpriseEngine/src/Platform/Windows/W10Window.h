@@ -9,6 +9,7 @@
 
 #include <memory>
 #include "Window.h"
+#include "Events/EventManager.h"
 #include "imgui_impl_win32.h"
 
 namespace Enterprise {
@@ -38,6 +39,7 @@ public:
     LRESULT ProcessMessage(UINT msg, WPARAM wParam, LPARAM lParam);
 
     bool PumpEvents() const override;
+
 public:
     static constexpr LONG MinWidth = 320;
     static constexpr LONG MinHeight = 240;
@@ -61,6 +63,7 @@ private:
     WindowData m_Data;
     WNDCLASSEXW m_wc{};
     HWND m_windowHandle{};
+    std::weak_ptr<RECT> m_windowRect{};
 };
 
 }

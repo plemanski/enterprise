@@ -5,3 +5,6 @@
 	path = EnterpriseEngine/vendor/imgui
 	url = https://github.com/ocornut/imgui.git
 	branch = docking
+[submodule "EnterpriseEngine/vendor/DirectX-Headers"]
+	path = EnterpriseEngine/vendor/DirectX-Headers
+	url = https://github.com/microsoft/DirectX-Headers.git

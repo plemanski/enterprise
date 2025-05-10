@@ -13,25 +13,25 @@ class EventManager {
 public:
     void Shutdown();
 
-    void Subscribe(const std::string& eventId, std::unique_ptr<IEventHandlerWrapper>&& handler);
-    void Unsubscribe(const std::string& eventId, const std::string& handlerTypeName);
+    void Subscribe(EventType eventId, std::unique_ptr<IEventHandlerWrapper> &&handler);
+    void Unsubscribe(EventType eventId, const std::string &handlerTypeName);
     void TriggerEvent(const Event& event);
     void QueueEvent(std::unique_ptr<Event>&& event);
     void DispatchEvents();
 
 private:
     std::vector<std::unique_ptr<Event>> m_eventsQueue;
-    std::unordered_map<std::string, std::vector<std::unique_ptr<IEventHandlerWrapper>>> m_subscribers;
+    std::unordered_map<EventType, std::vector<std::unique_ptr<IEventHandlerWrapper>>> m_subscribers;
 
 };
 
-    extern EventManager gEventManager;
+    extern EventManager g_EventManager;
 
     template<typename EventType>
     inline void Subscribe(const EventHandler<EventType>& callback)
     {
         std::unique_ptr<IEventHandlerWrapper> handler = std::make_unique<EventHandlerWrapper<EventType>>(callback);
-        gEventManager.Subscribe(EventType::GetStaticEventType(), std::move(handler));
+        g_EventManager.Subscribe(EventType::GetStaticEventType(), std::move(handler));
     }
 
     template<typename EventType>
@@ -42,12 +42,12 @@ private:
 
     inline void TriggerEvent(const Event& triggeredEvent)
     {
-        gEventManager.TriggerEvent(triggeredEvent);
+        g_EventManager.TriggerEvent(triggeredEvent);
     }
 
     inline void QueueEvent(std::unique_ptr<Event>&& event)
     {
-       gEventManager.QueueEvent(std::forward<std::unique_ptr<Event>>(event));
+       g_EventManager.QueueEvent(std::forward<std::unique_ptr<Event>>(event));
     }
 
 }

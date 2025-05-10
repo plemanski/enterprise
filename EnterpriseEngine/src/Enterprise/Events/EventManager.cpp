@@ -8,13 +8,14 @@
 
 namespace Enterprise::events {
 
+EventManager g_EventManager;
 
 void EventManager::Shutdown()
 {
     m_subscribers.clear();
 }
 
-void EventManager::Subscribe(const std::string& eventId, std::unique_ptr<IEventHandlerWrapper>&& handler)
+void EventManager::Subscribe(const EventType eventId, std::unique_ptr<IEventHandlerWrapper>&& handler)
 {
     // Find subscribers for the event id
     auto subscribers = m_subscribers.find(eventId);
@@ -35,7 +36,7 @@ void EventManager::Subscribe(const std::string& eventId, std::unique_ptr<IEventH
     m_subscribers[eventId].emplace_back(std::move(handler));
 }
 
-void EventManager::Unsubscribe(const std::string &eventId, const std::string& handlerTypeName)
+void EventManager::Unsubscribe(const EventType eventId, const std::string& handlerTypeName)
 {
     auto& handlers = m_subscribers[eventId];
     for (auto it = handlers.begin(); it != handlers.end(); ++it)

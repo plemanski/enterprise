@@ -23,7 +23,6 @@ namespace Enterprise {
         {
         }
     };
-
     class ENTERPRISE_API Window {
     public:
         virtual ~Window() = default;
