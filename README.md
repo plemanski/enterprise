@@ -9,3 +9,6 @@ This project is intended as an opportunity to learn Windows Application developm
 * [spdlog](https://github.com/gabime/spdlog)
 * [Dear ImGui](https://github.com/ocornut/imgui)
 * [DirectX-Headers](https://github.com/microsoft/DirectX-Headers)
+
+## Libaries Included
+* [CRC-32 by Stephan Brumme](https://create.stephan-brumme.com/crc32/)
