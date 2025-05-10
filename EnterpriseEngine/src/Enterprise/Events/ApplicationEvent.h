@@ -11,13 +11,13 @@ namespace Enterprise::events {
 class AppRenderEvent : public Event {
 public:
     AppRenderEvent() = default;
-    EVENT_TYPE(AppRender);
+    EVENT_TYPE("AppRender");
 };
 
 class AppUpdateEvent : public Event {
 public:
     AppUpdateEvent() = default;
-    EVENT_TYPE(AppUpdate);
+    EVENT_TYPE("AppUpdate");
 };
 
 }

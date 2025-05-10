@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include "Core/GraphicsCore.h"
+#include "Core/Renderer.h"
 // D3D12 extension library.
 
 namespace Enterprise
@@ -11,7 +11,7 @@ namespace Enterprise
 Application::Application()
 {
     m_window = std::unique_ptr<Window>(Window::Create());
-    Core::Graphics::Initialize(m_window.get());
+    m_renderer = std::unique_ptr<Core::Graphics::Renderer>(Core::Graphics::Renderer::Create(m_window.get()));
 }
 
 Application::~Application()
@@ -22,7 +22,6 @@ void Application::Run()
 {
 
     while (m_window->PumpEvents()) {};
-    ::CloseHandle(Core::Graphics::g_FenceEvent);
 
 }
 

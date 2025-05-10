@@ -9,8 +9,11 @@
 
 namespace Enterprise::events {
 
+using EventType = std::uint32_t;
+
 class EventManager {
 public:
+    EventManager() = default;
     void Shutdown();
 
     void Subscribe(EventType eventId, std::unique_ptr<IEventHandlerWrapper> &&handler);

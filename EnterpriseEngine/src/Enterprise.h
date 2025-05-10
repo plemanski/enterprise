@@ -7,4 +7,4 @@
 #include "Enterprise/EntryPoint.h"
 
 #include "Enterprise/Events/EventManager.h"
-#include "Enterprise/Core/GraphicsCore.h"
+#include "Enterprise/Core/Renderer.h"
