@@ -6,11 +6,10 @@ set(CMAKE_CXX_STANDARD 17)
 
 set (FullOutputDir "${CMAKE_HOME_DIRECTORY}/bin/${CMAKE_BUILD_TYPE}-${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}/${TargetName}")
 
-
-
 file(GLOB_RECURSE ENTERPRISE_ENGINE_SOURCE CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/vendor/DirectX-Headers")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 
 add_library("${TargetName}" SHARED "${ENTERPRISE_ENGINE_SOURCE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui/imgui.cpp"
@@ -20,7 +19,10 @@ add_library("${TargetName}" SHARED "${ENTERPRISE_ENGINE_SOURCE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui/imgui_demo.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui/backends/imgui_impl_win32.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui/backends/imgui_impl_dx12.cpp"
+    "${SHADER_FILES}"
 )
+
+add_dependencies("${TargetName}" shaders)
 
 
 target_link_directories("${TargetName}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/vendor/spdlog/include")
@@ -34,7 +36,7 @@ target_link_directories("${TargetName}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/vend
 
 target_include_directories("${TargetName}" PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/Enterprise")
 
-target_link_libraries("${TargetName}" PUBLIC "d3d12.lib" "dxgi.lib" "d3dcompiler.lib")
+target_link_libraries("${TargetName}" PUBLIC "d3d12.lib" "dxgi.lib" "d3dcompiler.lib" "dxguid.lib")
 target_link_libraries("${TargetName}" PUBLIC "DirectX-Headers")
 
 target_compile_definitions(EnterpriseEngine PUBLIC "EE_PLATFORM_WINDOWS")

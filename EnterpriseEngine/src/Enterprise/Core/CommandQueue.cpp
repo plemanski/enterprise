@@ -3,11 +3,11 @@
 //
 
 #include "CommandQueue.h"
+#include "Renderer.h"
 
 #include <cassert>
 #include <intsafe.h>
 
-#include "Renderer.h"
 
 namespace Enterprise::Core::Graphics {
 

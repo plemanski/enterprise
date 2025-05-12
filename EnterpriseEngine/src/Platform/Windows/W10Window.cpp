@@ -139,8 +139,8 @@ LRESULT W10Window::ProcessMessage(UINT msg, WPARAM wParam, LPARAM lParam)
         }
         case WM_PAINT:
         {
-            events::TriggerEvent(events::AppRenderEvent());
-            events::TriggerEvent(events::AppUpdateEvent());
+            events::TriggerEvent(events::AppUpdateEvent(0.0f, 0.0f));
+            events::TriggerEvent(events::AppRenderEvent(0.0f, 0.0f));
             break;
         }
         // Credit: Mike Marcin
@@ -196,6 +196,7 @@ LRESULT W10Window::ProcessMessage(UINT msg, WPARAM wParam, LPARAM lParam)
                     rect.bottom = rect.top + newHeight;
                     break;
             }
+            events::TriggerEvent(events::AppWindowResizeEvent(newWidth, newHeight));
             AdjustWindowRectEx(&rect, style, false, exStyle);
             return TRUE;
         }

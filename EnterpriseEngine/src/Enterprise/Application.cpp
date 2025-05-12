@@ -16,13 +16,12 @@ Application::Application()
 
 Application::~Application()
 {
+    m_renderer->Shutdown();
 }
 
 void Application::Run()
 {
-
     while (m_window->PumpEvents()) {};
-
 }
 
 

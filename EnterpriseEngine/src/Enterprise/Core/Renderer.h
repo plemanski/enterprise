@@ -6,14 +6,19 @@
 #define GRAPHICSCORE_H
 #define NOMINMAX
 
-#include <d3d12.h>
+#include <directx/d3d12.h>
 #include <dxgi1_6.h>
 #include <d3dcompiler.h>
+#include <DirectXMath.h>
+#include <directx/d3dx12.h>
 #include <exception>
 #include <memory>
 #include <wrl/client.h>
+#include <algorithm>
+#include <chrono>
 
 #include "CommandQueue.h"
+#include "HighResClock.h"
 #include "../Window.h"
 #include "../Events/ApplicationEvent.h"
 #include "../Events/EventHandler.h"
@@ -21,26 +26,71 @@
 
 namespace Enterprise::Core::Graphics {
 
+
 class ENTERPRISE_API Renderer {
 public:
-    Renderer();
+    Renderer(uint32_t width, uint32_t height);
     ~Renderer() { Shutdown(); }
     static std::unique_ptr<Renderer> Create(const Window* window);
 
-
     void Initialize(const Window*);
-
-
-
     void Shutdown() const;
 
-    void Flush(Microsoft::WRL::ComPtr<ID3D12CommandQueue>, Microsoft::WRL::ComPtr<ID3D12Fence>);
+public:
+    static constexpr uint32_t BUFFER_COUNT = 3;
 
 private:
+    void OnUpdateEvent(const events::AppUpdateEvent&);
+    void OnRenderEvent(const events::AppRenderEvent&);
+    void OnResizeEvent(const events::AppWindowResizeEvent&);
 
+    void DXRender();
+
+    void Resize(uint32_t width, uint32_t height);
+
+    void Flush();
+
+    void UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device2>
+                                 , Microsoft::WRL::ComPtr<IDXGISwapChain4>
+                                 , Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>);
+
+    void TransitionResource(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
+        Microsoft::WRL::ComPtr<ID3D12Resource>resource,
+        D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
+
+    void ClearRTV(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
+        D3D12_CPU_DESCRIPTOR_HANDLE rtv, FLOAT* clearColor);
+
+    void ClearDepth(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
+        D3D12_CPU_DESCRIPTOR_HANDLE dsv, FLOAT depth = 1.0f);
+
+    void UpdateBufferResource(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
+        ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
+        size_t numElements, size_t elementSize, const void* bufferData,
+        D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE);
+
+    void ResizeDepthBuffer(uint32_t width, uint32_t height);
+
+    Microsoft::WRL::ComPtr<ID3D12Resource> GetCurrentBackBuffer() const;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRenderTargetView() const;
+
+    UINT Present();
+
+    bool LoadContent();
+
+private:
+    Microsoft::WRL::ComPtr<IDXGIAdapter4> m_DxgiAdapter;
+    Microsoft::WRL::ComPtr<ID3D12Device2> m_D3d12Device;
+
+    std::shared_ptr<CommandQueue> m_DirectCommandQueue;
+    std::shared_ptr<CommandQueue> m_CopyCommandQueue;
+    bool m_VSync;
+    bool m_TearingSupported;
     static constexpr uint8_t m_NumFrames = 3;
     uint32_t m_ClientWidth = 1280;
     uint32_t m_ClientHeight = 720;
+    uint64_t m_FenceValues[BUFFER_COUNT] = {};
 
     Microsoft::WRL::ComPtr<ID3D12Device2>               m_Device;
     Microsoft::WRL::ComPtr<ID3D12CommandQueue>          m_CommandQueue;
@@ -52,29 +102,37 @@ private:
 
     RECT m_WindowRect {};
 
-    events::EventHandler<events::AppUpdateEvent> m_AppUpdateHandler;
-    events::EventHandler<events::AppRenderEvent> m_AppRenderHandler;
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_VertexBuffer;
+    D3D12_VERTEX_BUFFER_VIEW m_VertexBufferView;
 
-private:
-    void OnUpdateEvent();
-    void OnRenderEvent();
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_IndexBuffer;
+    D3D12_INDEX_BUFFER_VIEW m_IndexBufferView;
 
-    void DXUpdate();
-    void DXRender();
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_DepthBuffer;
 
-    void Resize(uint32_t width, uint32_t height);
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_DSVHeap;
 
-    void UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device2>
-                                 , Microsoft::WRL::ComPtr<IDXGISwapChain4>
-                                 , Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>);
+    Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
 
-    Microsoft::WRL::ComPtr<IDXGIAdapter4> m_DxgiAdapter;
-    Microsoft::WRL::ComPtr<ID3D12Device2> m_D3d12Device;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineState;
 
-    std::shared_ptr<CommandQueue> m_DirectCommandQueue;
-    bool m_VSync;
-    bool m_TearingSupported;
+    D3D12_VIEWPORT m_Viewport;
+    D3D12_RECT m_ScissorRect;
 
+    float m_FoV;
+
+    DirectX::XMMATRIX m_ModelMatrix;
+    DirectX::XMMATRIX m_ViewMatrix;
+    DirectX::XMMATRIX m_ProjectionMatrix;
+
+    bool m_ContentLoaded;
+
+    HighResClock m_UpdateClock;
+    HighResClock m_RenderClock;
+
+    events::EventHandler<events::AppUpdateEvent>        m_AppUpdateHandler;
+    events::EventHandler<events::AppRenderEvent>        m_AppRenderHandler;
+    events::EventHandler<events::AppWindowResizeEvent>  m_AppWindowResizeEventHandler;
 };
 
 inline void ThrowIfFailed(HRESULT hr)
