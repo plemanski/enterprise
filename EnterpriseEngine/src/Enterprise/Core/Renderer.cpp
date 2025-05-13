@@ -54,6 +54,10 @@ static WORD g_Indicies[36] =
     4, 0, 3, 4, 3, 7
 };
 
+uint64_t Renderer::ms_FrameCount = 0;
+
+static std::unique_ptr<Renderer> gs_pRenderer = nullptr;
+
 
 void Renderer::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList,
     ID3D12Resource **pDestinationResource,
@@ -244,6 +248,11 @@ D3D12_CPU_DESCRIPTOR_HANDLE Renderer::GetCurrentRenderTargetView() const
         m_CurrentBackBufferIndex, m_RTVDescriptorSize);
 }
 
+UINT Renderer::GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE heapType) const
+{
+    return m_D3d12Device->GetDescriptorHandleIncrementSize( heapType );
+}
+
 UINT Renderer::Present()
 {
     UINT syncInterval = m_VSync ? 1 : 0;
@@ -417,7 +426,7 @@ void Renderer::UpdateRenderTargetViews(ComPtr<ID3D12Device2> device,
     auto rtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(descriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-    for (uint8_t i = 0; i < m_NumFrames; ++i)
+    for (uint8_t i = 0; i < ms_NumFrames; ++i)
     {
         ComPtr<ID3D12Resource> backBuffer;
         ThrowIfFailed(swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffer)));
@@ -563,7 +572,7 @@ void Renderer::Resize(uint32_t width, uint32_t height)
         //Flush(m_CommandQueue, m_Fence, m_FenceValue, m_FenceEvent);
         m_DirectCommandQueue->Flush();
 
-        for (uint8_t i = 0; i < m_NumFrames; ++i)
+        for (uint8_t i = 0; i < ms_NumFrames; ++i)
         {
             // Release any references to the back buffers before resizing swap chain
             m_BackBuffers[i].Reset();
@@ -572,7 +581,7 @@ void Renderer::Resize(uint32_t width, uint32_t height)
 
         DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
         ThrowIfFailed(m_SwapChain->GetDesc(&swapChainDesc));
-        ThrowIfFailed(m_SwapChain->ResizeBuffers(m_NumFrames, m_ClientWidth, m_ClientHeight,
+        ThrowIfFailed(m_SwapChain->ResizeBuffers(ms_NumFrames, m_ClientWidth, m_ClientHeight,
             swapChainDesc.BufferDesc.Format, swapChainDesc.Flags));
 
         m_CurrentBackBufferIndex = m_SwapChain->GetCurrentBackBufferIndex();
@@ -611,18 +620,18 @@ void Renderer::Initialize(const Window* window)
         // m_TearingSupported = CheckTearingSupport();
     }
 
-    m_SwapChain = CreateSwapChain(hWnd, m_DirectCommandQueue->GetD3D12CommandQueue(), window->GetWidth(), window->GetHeight(), m_NumFrames);
+    m_SwapChain = CreateSwapChain(hWnd, m_DirectCommandQueue->GetD3D12CommandQueue(), window->GetWidth(), window->GetHeight(), ms_NumFrames);
 
     m_CurrentBackBufferIndex = m_SwapChain->GetCurrentBackBufferIndex();
 
-    m_RTVDescriptorHeap = CreateDescriptorHeap(m_Device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, m_NumFrames);
+    m_RTVDescriptorHeap = CreateDescriptorHeap(m_Device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, ms_NumFrames);
     m_RTVDescriptorSize = m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
     UpdateRenderTargetViews(m_Device, m_SwapChain, m_RTVDescriptorHeap);
 
 
     ::ShowWindow(hWnd, SW_SHOW);
-
+    ms_FrameCount =  0;
 }
 
 void Renderer::Shutdown() const
@@ -710,15 +719,24 @@ Renderer::Renderer(uint32_t width, uint32_t height)
     events::Subscribe<events::AppUpdateEvent>(m_AppUpdateHandler);
 }
 
+void Renderer::IncrementFrameCount()
+{
+    ++ms_FrameCount;
+}
+
 std::unique_ptr<Renderer> Renderer::Create(const Window* window)
 {
     auto renderer = std::make_unique<Renderer>(window->GetWidth(), window->GetHeight());
     renderer->Initialize(window);
     auto isLoaded =  renderer->LoadContent();
-    if (isLoaded)
-    {
-        return renderer;
-    }
+    gs_pRenderer = std::move(renderer);
+    return renderer;
+}
+
+Renderer* Renderer::Get()
+{
+    assert(gs_pRenderer);
+    return gs_pRenderer.get();
 }
 
 

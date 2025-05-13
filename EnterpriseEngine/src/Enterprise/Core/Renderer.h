@@ -31,11 +31,23 @@ class ENTERPRISE_API Renderer {
 public:
     Renderer(uint32_t width, uint32_t height);
     ~Renderer() { Shutdown(); }
+
+    [[nodiscard]] static uint64_t GetFrameCount() { return ms_FrameCount; };
+    static void IncrementFrameCount();
+
     static std::unique_ptr<Renderer> Create(const Window* window);
+
+    static Renderer* Get();
 
     void Initialize(const Window*);
     void Shutdown() const;
 
+    [[nodiscard]] Microsoft::WRL::ComPtr<ID3D12Device2> GetDevice() const { return m_D3d12Device; };
+
+    [[nodiscard]] Microsoft::WRL::ComPtr<ID3D12Resource> GetCurrentBackBuffer() const;
+
+    [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRenderTargetView() const;
+    [[nodiscard]] UINT GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE heapType ) const;
 public:
     static constexpr uint32_t BUFFER_COUNT = 3;
 
@@ -71,68 +83,68 @@ private:
 
     void ResizeDepthBuffer(uint32_t width, uint32_t height);
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> GetCurrentBackBuffer() const;
-
-    D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRenderTargetView() const;
 
     UINT Present();
 
     bool LoadContent();
 
-private:
-    Microsoft::WRL::ComPtr<IDXGIAdapter4> m_DxgiAdapter;
-    Microsoft::WRL::ComPtr<ID3D12Device2> m_D3d12Device;
 
-    std::shared_ptr<CommandQueue> m_DirectCommandQueue;
-    std::shared_ptr<CommandQueue> m_CopyCommandQueue;
-    bool m_VSync;
-    bool m_TearingSupported;
-    static constexpr uint8_t m_NumFrames = 3;
-    uint32_t m_ClientWidth = 1280;
-    uint32_t m_ClientHeight = 720;
-    uint64_t m_FenceValues[BUFFER_COUNT] = {};
+private:
+    Microsoft::WRL::ComPtr<IDXGIAdapter4>               m_DxgiAdapter;
+    Microsoft::WRL::ComPtr<ID3D12Device2>               m_D3d12Device;
+
+    std::shared_ptr<CommandQueue>                       m_DirectCommandQueue;
+    std::shared_ptr<CommandQueue>                       m_CopyCommandQueue;
+                                                        bool m_VSync;
+                                                        bool m_TearingSupported;
+                                                        static constexpr uint8_t ms_NumFrames = 3;
+    uint32_t                                            m_ClientWidth = 1280;
+    uint32_t                                            m_ClientHeight = 720;
+    uint64_t                                            m_FenceValues[BUFFER_COUNT] = {};
 
     Microsoft::WRL::ComPtr<ID3D12Device2>               m_Device;
     Microsoft::WRL::ComPtr<ID3D12CommandQueue>          m_CommandQueue;
     Microsoft::WRL::ComPtr<IDXGISwapChain4>             m_SwapChain;
-    Microsoft::WRL::ComPtr<ID3D12Resource>              m_BackBuffers[m_NumFrames];
+    Microsoft::WRL::ComPtr<ID3D12Resource>              m_BackBuffers[ms_NumFrames];
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>        m_RTVDescriptorHeap;
-    UINT m_RTVDescriptorSize = 0;
-    UINT m_CurrentBackBufferIndex = 0;
+    UINT                                                m_RTVDescriptorSize = 0;
+    UINT                                                m_CurrentBackBufferIndex = 0;
 
-    RECT m_WindowRect {};
+    RECT                                                m_WindowRect {};
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> m_VertexBuffer;
-    D3D12_VERTEX_BUFFER_VIEW m_VertexBufferView;
+    Microsoft::WRL::ComPtr<ID3D12Resource>              m_VertexBuffer;
+    D3D12_VERTEX_BUFFER_VIEW                            m_VertexBufferView;
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> m_IndexBuffer;
-    D3D12_INDEX_BUFFER_VIEW m_IndexBufferView;
+    Microsoft::WRL::ComPtr<ID3D12Resource>              m_IndexBuffer;
+    D3D12_INDEX_BUFFER_VIEW                             m_IndexBufferView;
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> m_DepthBuffer;
+    Microsoft::WRL::ComPtr<ID3D12Resource>              m_DepthBuffer;
 
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_DSVHeap;
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>        m_DSVHeap;
 
-    Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
+    Microsoft::WRL::ComPtr<ID3D12RootSignature>         m_RootSignature;
 
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineState;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState>         m_PipelineState;
 
-    D3D12_VIEWPORT m_Viewport;
-    D3D12_RECT m_ScissorRect;
+    D3D12_VIEWPORT                                      m_Viewport;
+    D3D12_RECT                                          m_ScissorRect;
 
-    float m_FoV;
+    float                                               m_FoV;
 
-    DirectX::XMMATRIX m_ModelMatrix;
-    DirectX::XMMATRIX m_ViewMatrix;
-    DirectX::XMMATRIX m_ProjectionMatrix;
+    DirectX::XMMATRIX                                   m_ModelMatrix;
+    DirectX::XMMATRIX                                   m_ViewMatrix;
+    DirectX::XMMATRIX                                   m_ProjectionMatrix;
 
-    bool m_ContentLoaded;
+    bool                                                m_ContentLoaded;
 
-    HighResClock m_UpdateClock;
-    HighResClock m_RenderClock;
+    HighResClock                                        m_UpdateClock;
+    HighResClock                                        m_RenderClock;
 
     events::EventHandler<events::AppUpdateEvent>        m_AppUpdateHandler;
     events::EventHandler<events::AppRenderEvent>        m_AppRenderHandler;
     events::EventHandler<events::AppWindowResizeEvent>  m_AppWindowResizeEventHandler;
+
+    static uint64_t                                     ms_FrameCount;
 };
 
 inline void ThrowIfFailed(HRESULT hr)

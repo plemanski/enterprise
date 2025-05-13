@@ -4,7 +4,7 @@
 
 #include "Core.h"
 #include "Window.h"
-#include "Core/DescriptorHeap.h"
+#include "Core/DynamicDescriptorHeap.h"
 #include "Events/ApplicationEvent.h"
 #include "Events/EventHandler.h"
 #include "Core/Renderer.h"

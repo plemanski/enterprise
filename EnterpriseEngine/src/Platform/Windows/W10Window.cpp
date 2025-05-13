@@ -7,6 +7,7 @@
 #include "W10Window.h"
 
 #include "Log.h"
+#include "Core/Renderer.h"
 #include "Events/ApplicationEvent.h"
 #include "Events/EventManager.h"
 
@@ -139,8 +140,10 @@ LRESULT W10Window::ProcessMessage(UINT msg, WPARAM wParam, LPARAM lParam)
         }
         case WM_PAINT:
         {
-            events::TriggerEvent(events::AppUpdateEvent(0.0f, 0.0f));
-            events::TriggerEvent(events::AppRenderEvent(0.0f, 0.0f));
+            Core::Graphics::Renderer::IncrementFrameCount();
+
+            events::TriggerEvent(events::AppUpdateEvent(0.0f, 0.0f, Core::Graphics::Renderer::GetFrameCount()));
+            events::TriggerEvent(events::AppRenderEvent(0.0f, 0.0f, Core::Graphics::Renderer::GetFrameCount()));
             break;
         }
         // Credit: Mike Marcin

@@ -11,6 +11,10 @@
 #include <memory>
 #include <deque>
 
+#include "Renderer.h"
+#include "MathHelpers.h"
+
+namespace Enterprise::Core::Graphics {
 
 class UploadBuffer {
 public:
@@ -30,6 +34,8 @@ public:
 private:
     struct Page {
         Page(size_t sizeInBytes);
+
+        ~Page();
 
         bool HasSpace(size_t sizeInBytes, size_t alignment ) const;
 
@@ -69,3 +75,5 @@ private:
 
 
 #endif //UPLOADBUFFER_H
+
+}

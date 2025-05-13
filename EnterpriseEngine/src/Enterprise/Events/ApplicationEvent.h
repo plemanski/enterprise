@@ -10,26 +10,30 @@ namespace Enterprise::events {
 
 class AppRenderEvent : public Event {
 public:
-    AppRenderEvent(double fDeltaTime, double fTotalTime)
+    AppRenderEvent(double fDeltaTime, double fTotalTime, uint64_t frameCount )
         : ElapsedTime( fDeltaTime )
         , TotalTime( fTotalTime )
+        , FrameCount( frameCount )
     {};
     EVENT_TYPE("AppRender");
 
-    double ElapsedTime;
-    double TotalTime;
+    double      ElapsedTime;
+    double      TotalTime;
+    uint64_t    FrameCount;
 };
 
 class AppUpdateEvent : public Event {
 public:
-    AppUpdateEvent(double fDeltaTime, double fTotalTime)
+    AppUpdateEvent(double fDeltaTime, double fTotalTime, uint64_t frameCount)
         : ElapsedTime( fDeltaTime )
         , TotalTime( fTotalTime )
+        , FrameCount( frameCount )
     {};
     EVENT_TYPE("AppUpdate");
 
-    double ElapsedTime;
-    double TotalTime;
+    double      ElapsedTime;
+    double      TotalTime;
+    uint64_t    FrameCount;
 
 };
 
