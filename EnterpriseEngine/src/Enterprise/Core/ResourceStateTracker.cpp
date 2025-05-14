@@ -16,6 +16,12 @@ std::mutex ResourceStateTracker::ms_GlobalStateMutex;
 bool ResourceStateTracker::ms_IsLocked = false;
 ResourceStateTracker::ResourceStateMap ResourceStateTracker::ms_GlobalResourceState;
 
+ResourceStateTracker::ResourceStateTracker()
+{}
+
+ResourceStateTracker::~ResourceStateTracker()
+{}
+
 void ResourceStateTracker::ResourceBarrier(const D3D12_RESOURCE_BARRIER &barrier)
 {
     if (barrier.Type == D3D12_RESOURCE_BARRIER_TYPE_TRANSITION )
@@ -147,7 +153,7 @@ uint32_t ResourceStateTracker::FlushPendingResourceBarriers(CommandList &command
     if ( numBarriers > 0 )
     {
         auto d3d12CommandList = commandList.GetGraphicsCommandList();
-        d3d12CommandList->ResourceBarrier( numBarriers, resourceBarriers );
+        d3d12CommandList->ResourceBarrier( numBarriers, resourceBarriers.data() );
     }
 
     m_PendingResourceBarriers.clear();

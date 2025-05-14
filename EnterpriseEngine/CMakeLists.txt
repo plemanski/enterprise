@@ -4,11 +4,15 @@ set(TargetName "EnterpriseEngine")
 
 set(CMAKE_CXX_STANDARD 17)
 
+set(IncludeDir "${CMAKE_CURRENT_SOURCE_DIR}/include/")
 set (FullOutputDir "${CMAKE_HOME_DIRECTORY}/bin/${CMAKE_BUILD_TYPE}-${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}/${TargetName}")
-
 file(GLOB_RECURSE ENTERPRISE_ENGINE_SOURCE CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
+set ( BUILD_TESTING OFF )
+set ( BUILD_SHARED_LIBS ON )
+
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/vendor/DirectX-Headers")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/vendor/DirectXTex" )
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 
 add_library("${TargetName}" SHARED "${ENTERPRISE_ENGINE_SOURCE}"
@@ -35,9 +39,10 @@ target_include_directories("${TargetName}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/v
 target_link_directories("${TargetName}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui/backends")
 
 target_include_directories("${TargetName}" PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/Enterprise")
+target_include_directories("${TargetName}" PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/shaders")
 
 target_link_libraries("${TargetName}" PUBLIC "d3d12.lib" "dxgi.lib" "d3dcompiler.lib" "dxguid.lib")
-target_link_libraries("${TargetName}" PUBLIC "DirectX-Headers")
+target_link_libraries("${TargetName}" PUBLIC "DirectX-Headers" "DirectXTex")
 
 target_compile_definitions(EnterpriseEngine PUBLIC "EE_PLATFORM_WINDOWS")
 target_compile_definitions(EnterpriseEngine PRIVATE "EE_BUILD_DLL")

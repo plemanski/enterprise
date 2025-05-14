@@ -44,30 +44,24 @@ private:
         void Reset();
 
     private:
-        Microsoft::WRL::ComPtr<ID3D12Resource> m_D3D12Resource;
-
+        Microsoft::WRL::ComPtr<ID3D12Resource>  m_D3D12Resource;
         // Base pointer
-        void* m_pCPU;
-        D3D12_GPU_VIRTUAL_ADDRESS m_pGPU;
-
+        void*                                   m_pCPU;
+        D3D12_GPU_VIRTUAL_ADDRESS               m_pGPU;
         //Allocated Page size
-        size_t m_PageSize;
-
+        size_t                                  m_PageSize;
         //Current allocation offset in bytes
-        size_t m_Offset;
+        size_t                                  m_Offset;
     };
 
     using PagePool = std::deque< std::shared_ptr<Page> >;
 
     std::shared_ptr<Page> RequestPage();
 
-    PagePool m_PagePool;
-
-    PagePool m_AvailablePages;
-
-    std::shared_ptr<Page> m_CurrentPage;
-
-    size_t m_PageSize;
+    PagePool                m_PagePool;
+    PagePool                m_AvailablePages;
+    std::shared_ptr<Page>   m_CurrentPage;
+    size_t                  m_PageSize;
 
 
 };

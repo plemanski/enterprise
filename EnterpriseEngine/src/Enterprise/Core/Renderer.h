@@ -17,15 +17,18 @@
 #include <algorithm>
 #include <chrono>
 
+#include "DescriptorAllocator.h"
 #include "CommandQueue.h"
+#include "DescriptorAllocation.h"
 #include "HighResClock.h"
+#include "Log.h"
 #include "../Window.h"
 #include "../Events/ApplicationEvent.h"
 #include "../Events/EventHandler.h"
 
 
 namespace Enterprise::Core::Graphics {
-
+class DescriptorAllocator;
 
 class ENTERPRISE_API Renderer {
 public:
@@ -48,6 +51,29 @@ public:
 
     [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRenderTargetView() const;
     [[nodiscard]] UINT GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE heapType ) const;
+
+    DescriptorAllocation AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors = 1);
+
+    [[nodiscard]] std::shared_ptr<CommandQueue> GetCommandQueue(D3D12_COMMAND_LIST_TYPE type ) const
+    {
+        std::shared_ptr<CommandQueue> commandQueue;
+        switch (type)
+        {
+            case D3D12_COMMAND_LIST_TYPE_COPY:
+                commandQueue = m_CopyCommandQueue;
+                break;
+            case D3D12_COMMAND_LIST_TYPE_COMPUTE:
+                commandQueue = m_ComputeCommandQueue;
+                break;
+            case D3D12_COMMAND_LIST_TYPE_DIRECT:
+                commandQueue = m_DirectCommandQueue;
+                break;
+            default:
+                EE_CORE_WARN("Invalid command queue type requested");
+                assert(false && "Invalid Command queue type");
+        }
+        return commandQueue;
+    }
 public:
     static constexpr uint32_t BUFFER_COUNT = 3;
 
@@ -95,6 +121,7 @@ private:
 
     std::shared_ptr<CommandQueue>                       m_DirectCommandQueue;
     std::shared_ptr<CommandQueue>                       m_CopyCommandQueue;
+    std::shared_ptr<CommandQueue>                       m_ComputeCommandQueue;
                                                         bool m_VSync;
                                                         bool m_TearingSupported;
                                                         static constexpr uint8_t ms_NumFrames = 3;
@@ -125,6 +152,8 @@ private:
     Microsoft::WRL::ComPtr<ID3D12RootSignature>         m_RootSignature;
 
     Microsoft::WRL::ComPtr<ID3D12PipelineState>         m_PipelineState;
+
+    std::unique_ptr<DescriptorAllocator>                m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 
     D3D12_VIEWPORT                                      m_Viewport;
     D3D12_RECT                                          m_ScissorRect;

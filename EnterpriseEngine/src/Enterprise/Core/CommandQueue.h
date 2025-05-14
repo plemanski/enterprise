@@ -5,6 +5,7 @@
 #ifndef COMMANDQUEUE_H
 #define COMMANDQUEUE_H
 #include <cstdint>
+#include <memory>
 #include <queue>
 
 
@@ -14,6 +15,7 @@
 
 
 namespace Enterprise::Core::Graphics {
+class CommandList;
 
 class CommandQueue {
 public:
@@ -21,7 +23,7 @@ public:
     CommandQueue(Microsoft::WRL::ComPtr<ID3D12Device2> device, D3D12_COMMAND_LIST_TYPE type);
     virtual ~CommandQueue() = default;
 
-    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> GetCommandList();
+    std::shared_ptr<CommandList> GetCommandList();
 
 
     uint64_t ExecuteCommandList(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList);

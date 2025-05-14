@@ -12,7 +12,9 @@
 #include <cassert>
 #include <chrono>
 
+#include "CommandList.h"
 #include "CommandQueue.h"
+#include "DescriptorAllocator.h"
 #include "directx/d3dx12_barriers.h"
 #include "directx/d3dx12_root_signature.h"
 #include "../Window.h"
@@ -98,7 +100,7 @@ void Renderer::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandLi
 
 bool Renderer::LoadContent()
 {
-    auto commandList = m_CopyCommandQueue->GetCommandList();
+    auto commandList = m_CopyCommandQueue->GetCommandList()->GetGraphicsCommandList();
 
     ComPtr<ID3D12Resource> intermediateVertexBuffer;
     UpdateBufferResource(commandList.Get(),
@@ -251,6 +253,11 @@ D3D12_CPU_DESCRIPTOR_HANDLE Renderer::GetCurrentRenderTargetView() const
 UINT Renderer::GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE heapType) const
 {
     return m_D3d12Device->GetDescriptorHandleIncrementSize( heapType );
+}
+
+DescriptorAllocation Renderer::AllocateDescriptors( D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors )
+{
+    return m_DescriptorAllocators[type]->Allocate(numDescriptors);
 }
 
 UINT Renderer::Present()
@@ -516,7 +523,7 @@ void Renderer::DXRender()
     // Reset command allocator and command list to initial state before sending any commands
     //commandAllocator->Reset();
     //m_CommandList->Reset(commandAllocator.Get(), nullptr);
-    auto commandList = m_DirectCommandQueue->GetCommandList();
+    auto commandList = m_DirectCommandQueue->GetCommandList()->GetGraphicsCommandList();
 
     // Clear the RTV (Render target view)
     {
@@ -642,7 +649,7 @@ void Renderer::Shutdown() const
 
 void Renderer::OnRenderEvent(const events::AppRenderEvent& event)
 {
-    auto commandList = m_DirectCommandQueue->GetCommandList();
+    auto commandList = m_DirectCommandQueue->GetCommandList()->GetGraphicsCommandList();
     auto backBuffer = GetCurrentBackBuffer();
     auto rtv = GetCurrentRenderTargetView();
     auto dsv = m_DSVHeap->GetCPUDescriptorHandleForHeapStart();

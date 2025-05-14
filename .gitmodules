@@ -8,3 +8,6 @@
 [submodule "EnterpriseEngine/vendor/DirectX-Headers"]
 	path = EnterpriseEngine/vendor/DirectX-Headers
 	url = https://github.com/microsoft/DirectX-Headers.git
+[submodule "EnterpriseEngine/vendor/DirectXTex"]
+	path = EnterpriseEngine/vendor/DirectXTex
+	url = https://github.com/Microsoft/DirectXTex

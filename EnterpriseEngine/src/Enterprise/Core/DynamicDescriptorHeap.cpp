@@ -10,6 +10,8 @@
 
 namespace Enterprise::Core::Graphics {
 
+
+
 DynamicDescriptorHeap::DynamicDescriptorHeap( D3D12_DESCRIPTOR_HEAP_TYPE heapType, uint32_t numDescriptorsPerHeap)
     : m_DescriptorHeapType( heapType )
     , m_NumDescriptorsPerHeap( numDescriptorsPerHeap )
@@ -126,7 +128,7 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(CommandList &commandList,
     if (numDescriptorsToCommit > 0 )
     {
         auto device = Renderer::Get()->GetDevice();
-        auto d3d12GraphicsCommandList = commandList.GetGraphicsCommandList;
+        auto d3d12GraphicsCommandList = commandList.GetGraphicsCommandList().Get();
         assert( d3d12GraphicsCommandList != nullptr );
 
         if ( !m_CurrentDescriptorHeap || m_NumFreeHandles < numDescriptorsToCommit )
@@ -135,7 +137,7 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(CommandList &commandList,
             m_CurrentCPUDescriptorHandle = m_CurrentDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
             m_CurrentGPUDescriptorHandle = m_CurrentDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
 
-            commandList.SetDescriptorHeap( m_DescriptorHeapType, m_CurrentDescriptorHeap );
+            commandList.SetDescriptorHeap( m_DescriptorHeapType, m_CurrentDescriptorHeap.Get() );
 
             // When updating the descriptor heap on the command list, all descriptor
             // tables must be (re)recopied to the new descriptor heap (not just

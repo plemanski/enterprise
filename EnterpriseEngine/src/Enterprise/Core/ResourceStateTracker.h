@@ -14,9 +14,10 @@
 #include "directx/d3d12.h"
 
 
+namespace Enterprise::Core::Graphics {
+
 class CommandList;
 class Resource;
-namespace Enterprise::Core::Graphics {
 
 class ResourceStateTracker {
 public:
@@ -32,7 +33,7 @@ public:
                             UINT subResource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 
     void UAVBarrier( Resource* resource = nullptr );
-    void AliasBarrier (const Resource *resourceBefore = nullptr, const Resource *resourceAfter);
+    void AliasBarrier (const Resource *resourceBefore = nullptr, const Resource *resourceAfter = nullptr);
 
     void FlushResourceBarriers(CommandList &commandList);
 

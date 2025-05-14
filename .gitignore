@@ -3,6 +3,6 @@
 \bin
 \bin-int
 \cmake-build*
-
+\include\shaders
 *.user
 
