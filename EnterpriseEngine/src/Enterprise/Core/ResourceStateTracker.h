@@ -43,9 +43,9 @@ public:
 
     void Reset();
 
-    void Lock();
+    static void Lock();
 
-    void Unlock();
+    static void Unlock();
 
     static void AddGlobalResourceState( ID3D12Resource* resource, D3D12_RESOURCE_STATES state );
     static void RemoveGlobalResourceState( ID3D12Resource* resource );

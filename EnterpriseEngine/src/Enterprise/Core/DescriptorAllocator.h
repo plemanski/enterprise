@@ -17,12 +17,13 @@
 
 #include "Renderer.h"
 #include "DescriptorAllocation.h"
+#include "Core.h"
 
 namespace Enterprise::Core::Graphics {
 
 class DescriptorAllocatorPage;
 
-class DescriptorAllocator {
+class ENTERPRISE_API DescriptorAllocator {
 public:
     DescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptorsPerHeap = 256);
     //virtual ~DescriptorAllocator();

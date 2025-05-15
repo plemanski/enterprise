@@ -6,7 +6,6 @@
 
 #include "Renderer.h"
 
-//TODO: Implement
 namespace Enterprise::Core::Graphics {
 RootSignature::RootSignature()
     : m_RootSignatureDesc{}
@@ -132,6 +131,9 @@ void RootSignature::SetRootSignatureDesc( const D3D12_ROOT_SIGNATURE_DESC1 &root
     ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&versionRootSignatureDesc,
                                                         rootSignatureVersion,
                                                         &rootSignatureBlob, &errorBlob));
+    // Create the root signature.
+    ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(),
+        rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
 }
 
 uint32_t RootSignature::GetDescriptorTableBitMask( D3D12_DESCRIPTOR_HEAP_TYPE heapType ) const

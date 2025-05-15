@@ -4,6 +4,8 @@
 
 #include "Resource.h"
 
+#include <utility>
+#include "Helpers.h"
 #include "Device.h"
 #include "DirectXTex.h"
 #include "Renderer.h"
@@ -11,46 +13,101 @@
 #include "directx/d3dx12.h"
 
 namespace Enterprise::Core::Graphics {
-Resource::Resource( Device &device, const D3D12_RESOURCE_DESC &resourceDesc, const D3D12_CLEAR_VALUE* clearValue )
-    : m_Device(device)
-{
-    auto d3d12Device = m_Device.GetD3D12Device();
+Resource::Resource(const std::wstring& name)
+    : m_ResourceName(name)
+    , m_FormatSupport({})
+{}
 
-    if (clearValue)
+Resource::Resource(const D3D12_RESOURCE_DESC& resourceDesc, const D3D12_CLEAR_VALUE* clearValue, const std::wstring& name)
+{
+    if ( clearValue )
     {
         m_D3D12ClearValue = std::make_unique<D3D12_CLEAR_VALUE>(*clearValue);
     }
 
-    ThrowIfFailed(d3d12Device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE, &resourceDesc,
-        D3D12_RESOURCE_STATE_COMMON, m_D3D12ClearValue.get(), IID_PPV_ARGS(&m_D3D12Resource)));
+    auto device = Renderer::Get()->GetDevice();
 
-    ResourceStateTracker::AddGlobalResourceState(m_D3D12Resource.Get(), D3D12_RESOURCE_STATE_COMMON);
+    ThrowIfFailed( device->CreateCommittedResource(
+        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+        D3D12_HEAP_FLAG_NONE,
+        &resourceDesc,
+        D3D12_RESOURCE_STATE_COMMON,
+        m_D3D12ClearValue.get(),
+        IID_PPV_ARGS(&m_D3D12Resource)
+    ) );
+
+    ResourceStateTracker::AddGlobalResourceState(m_D3D12Resource.Get(), D3D12_RESOURCE_STATE_COMMON );
 
     CheckFeatureSupport();
+    SetName(name);
 }
 
-Resource::Resource( Device &                               device,
-                    Microsoft::WRL::ComPtr<ID3D12Resource> resource,
-                    const D3D12_CLEAR_VALUE*               clearValue )
-    : m_Device(device)
-      , m_D3D12Resource(resource)
+Resource::Resource(Microsoft::WRL::ComPtr<ID3D12Resource> resource, const std::wstring& name)
+    : m_D3D12Resource(resource)
+    , m_FormatSupport({})
 {
-    if (clearValue)
+    CheckFeatureSupport();
+    SetName(name);
+}
+
+Resource::Resource(const Resource& copy)
+    : m_D3D12Resource(copy.m_D3D12Resource)
+    , m_FormatSupport(copy.m_FormatSupport)
+    , m_ResourceName(copy.m_ResourceName)
+    , m_D3D12ClearValue(std::make_unique<D3D12_CLEAR_VALUE>(*copy.m_D3D12ClearValue))
+{}
+
+Resource::Resource(Resource&& copy)
+    : m_D3D12Resource(std::move(copy.m_D3D12Resource))
+    , m_FormatSupport(copy.m_FormatSupport)
+    , m_ResourceName(std::move(copy.m_ResourceName))
+    , m_D3D12ClearValue(std::move(copy.m_D3D12ClearValue))
+{}
+
+Resource& Resource::operator=(const Resource& other)
+{
+    if ( this != &other )
+    {
+        m_D3D12Resource = other.m_D3D12Resource;
+        m_FormatSupport = other.m_FormatSupport;
+        m_ResourceName = other.m_ResourceName;
+        if ( other.m_D3D12ClearValue )
+        {
+            m_D3D12ClearValue = std::make_unique<D3D12_CLEAR_VALUE>( *other.m_D3D12ClearValue );
+        }
+    }
+
+    return *this;
+}
+
+Resource& Resource::operator=(Resource&& other) noexcept
+{
+    if (this != &other)
+    {
+        m_D3D12Resource = std::move(other.m_D3D12Resource);
+        m_FormatSupport = other.m_FormatSupport;
+        m_ResourceName = std::move(other.m_ResourceName);
+        m_D3D12ClearValue = std::move( other.m_D3D12ClearValue );
+
+        other.Reset();
+    }
+
+    return *this;
+}
+
+
+Resource::~Resource()
+{
+}
+
+void Resource::SetD3D12Resource( Microsoft::WRL::ComPtr<ID3D12Resource> d3d12Resource,
+                                 const D3D12_CLEAR_VALUE*               clearValue )
+{
+    m_D3D12Resource = std::move(d3d12Resource);
+    if (m_D3D12ClearValue)
     {
         m_D3D12ClearValue = std::make_unique<D3D12_CLEAR_VALUE>(*clearValue);
-    }
-    CheckFeatureSupport();
-}
-
-void Resource::SetD3D12Resource(Microsoft::WRL::ComPtr<ID3D12Resource> d3d12Resource, const D3D12_CLEAR_VALUE* clearValue = nullptr)
-{
-    m_D3D12Resource = d3d12Resource;
-    if ( m_D3D12ClearValue )
-    {
-        m_D3D12ClearValue = std::make_unique<D3D12_CLEAR_VALUE>( *clearValue );
-    }
-    else
+    } else
     {
         m_D3D12ClearValue.reset();
     }
@@ -58,7 +115,7 @@ void Resource::SetD3D12Resource(Microsoft::WRL::ComPtr<ID3D12Resource> d3d12Reso
     SetName(m_ResourceName);
 }
 
-void Resource::SetName(const std::wstring& name)
+void Resource::SetName( const std::wstring &name )
 {
     m_ResourceName = name;
     if (m_D3D12Resource && !m_ResourceName.empty())
@@ -67,9 +124,12 @@ void Resource::SetName(const std::wstring& name)
     }
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE Resource::GetShaderResourceView(
-    const D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc )
+void Resource::Reset()
 {
+    m_D3D12Resource.Reset();
+    m_FormatSupport = {};
+    m_D3D12ClearValue.reset();
+    m_ResourceName.clear();
 }
 
 bool Resource::CheckFormatSupport( D3D12_FORMAT_SUPPORT1 formatSupport ) const
@@ -84,7 +144,7 @@ bool Resource::CheckFormatSupport( D3D12_FORMAT_SUPPORT2 formatSupport ) const
 
 void Resource::CheckFeatureSupport()
 {
-    auto d3d12Device = m_Device.GetD3D12Device();
+    auto d3d12Device = Renderer::Get()->GetDevice();
 
     auto desc = m_D3D12Resource->GetDesc();
     m_FormatSupport.Format = desc.Format;
@@ -92,20 +152,57 @@ void Resource::CheckFeatureSupport()
                                                    sizeof(D3D12_FEATURE_DATA_FORMAT_SUPPORT)));
 }
 
-
-Texture::Texture( Device &device, const D3D12_RESOURCE_DESC &resourceDesc, const D3D12_CLEAR_VALUE* clearValue )
-    : Resource(device, resourceDesc, clearValue)
+Texture::Texture( const std::wstring &name )
+    : Resource(name)
 {
     CreateViews();
 }
 
-Texture::Texture( Device &device, Microsoft::WRL::ComPtr<ID3D12Resource> resource, const D3D12_CLEAR_VALUE* clearValue )
-    : Resource(device, resource, clearValue)
+Texture::Texture( const D3D12_RESOURCE_DESC &resourceDesc, const D3D12_CLEAR_VALUE* clearValue,
+    const std::wstring &name )
+        : Resource(resourceDesc, clearValue, name)
 {
     CreateViews();
 }
 
-Texture::~Texture() = default;
+Texture::Texture( Microsoft::WRL::ComPtr<ID3D12Resource> resource, const std::wstring &name )
+    : Resource(resource, name)
+{
+    CreateViews();
+}
+
+Texture::Texture(const Texture& copy)
+    : Resource(copy)
+{
+    CreateViews();
+}
+
+Texture::Texture(Texture&& copy)
+    : Resource(copy)
+{
+    CreateViews();
+}
+
+Texture& Texture::operator=(const Texture& other)
+{
+    Resource::operator=(other);
+
+    CreateViews();
+
+    return *this;
+}
+Texture& Texture::operator=(Texture&& other)
+{
+    Resource::operator=(other);
+
+    CreateViews();
+
+    return *this;
+}
+
+Texture::~Texture()
+{}
+
 
 void Texture::Resize( uint32_t width, uint32_t height, uint32_t depth )
 {
@@ -118,7 +215,7 @@ void Texture::Resize( uint32_t width, uint32_t height, uint32_t depth )
         resourceDesc.DepthOrArraySize = depth;
         resourceDesc.MipLevels = resourceDesc.SampleDesc.Count > 1 ? 1 : 0;
 
-        auto d3d12Device = m_Device.GetD3D12Device();
+        auto d3d12Device = Renderer::Get()->GetDevice();
 
         ThrowIfFailed(d3d12Device->CreateCommittedResource(
                 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
@@ -189,7 +286,7 @@ void Texture::CreateViews()
 {
     if (m_D3D12Resource)
     {
-        auto d3d12Device = m_Device.GetD3D12Device();
+        auto d3d12Device = Renderer::Get()->GetDevice();
         auto renderer = Renderer::Get();
 
         CD3DX12_RESOURCE_DESC desc(m_D3D12Resource->GetDesc());
@@ -241,14 +338,78 @@ D3D12_CPU_DESCRIPTOR_HANDLE Texture::GetDepthStencilView() const
     return m_DepthStencilView.GetDescriptorHandle();
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE Texture::GetShaderResourceView() const
+
+DescriptorAllocation Texture::CreateShaderResourceView( const D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc ) const
 {
-    return m_ShaderResourceView.GetDescriptorHandle();
+    auto renderer = Renderer::Get();
+    auto device = renderer->GetDevice();
+    auto srv = renderer->AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    device->CreateShaderResourceView(m_D3D12Resource.Get(), srvDesc, srv.GetDescriptorHandle());
+
+    return srv;
 }
+
+DescriptorAllocation Texture::CreateUnorderedAccessView( const D3D12_UNORDERED_ACCESS_VIEW_DESC* uavDesc ) const
+{
+    auto renderer = Renderer::Get();
+    auto device = renderer->GetDevice();
+    auto uav = renderer->AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    device->CreateUnorderedAccessView(m_D3D12Resource.Get(), nullptr, uavDesc, uav.GetDescriptorHandle());
+
+    return uav;
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE Texture::GetShaderResourceView( const D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc ) const
+{
+    std::size_t hash = 0;
+    if (srvDesc)
+    {
+        //This might not work
+        hash = std::hash<const D3D12_SHADER_RESOURCE_VIEW_DESC *>{}(srvDesc);
+    }
+
+    std::lock_guard<std::mutex> lock(m_ShaderResourceViewsMutex);
+
+    auto iter = m_ShaderResourceViews.find(hash);
+    if (iter == m_ShaderResourceViews.end())
+    {
+        auto srv = CreateShaderResourceView(srvDesc);
+        iter = m_ShaderResourceViews.insert({hash, std::move(srv)}).first;
+    }
+
+    return iter->second.GetDescriptorHandle();
+}
+
+//D3D12_CPU_DESCRIPTOR_HANDLE Texture::GetShaderResourceView() const
+//{
+//    return m_ShaderResourceView.GetDescriptorHandle();
+//}
 
 D3D12_CPU_DESCRIPTOR_HANDLE Texture::GetUnorderedAccessView( uint32_t mip ) const
 {
     return m_UnorderedAccessView.GetDescriptorHandle(mip);
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE Texture::GetUnorderedAccessView(const D3D12_UNORDERED_ACCESS_VIEW_DESC* uavDesc) const
+{
+    std::size_t hash = 0;
+    if (uavDesc)
+    {
+        hash = std::hash<D3D12_UNORDERED_ACCESS_VIEW_DESC>{}(*uavDesc);
+    }
+
+    std::lock_guard<std::mutex> guard(m_UnorderedAccessViewsMutex);
+
+    auto iter = m_UnorderedAccessViews.find(hash);
+    if (iter == m_UnorderedAccessViews.end())
+    {
+        auto uav = CreateUnorderedAccessView(uavDesc);
+        iter = m_UnorderedAccessViews.insert( { hash, std::move(uav) }).first;
+    }
+
+    return iter->second.GetDescriptorHandle();
 }
 
 bool Texture::HasAlpha() const

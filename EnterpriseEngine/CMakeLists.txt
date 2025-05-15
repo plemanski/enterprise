@@ -9,7 +9,7 @@ set (FullOutputDir "${CMAKE_HOME_DIRECTORY}/bin/${CMAKE_BUILD_TYPE}-${CMAKE_CXX_
 file(GLOB_RECURSE ENTERPRISE_ENGINE_SOURCE CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 set ( BUILD_TESTING OFF )
-set ( BUILD_SHARED_LIBS ON )
+#set ( BUILD_SHARED_LIBS ON )
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/vendor/DirectX-Headers")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/vendor/DirectXTex" )

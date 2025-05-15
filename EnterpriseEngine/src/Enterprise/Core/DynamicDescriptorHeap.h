@@ -22,11 +22,11 @@ class RootSignature;
 
 class DynamicDescriptorHeap {
 public:
-    DynamicDescriptorHeap(
+    explicit DynamicDescriptorHeap(
         D3D12_DESCRIPTOR_HEAP_TYPE heapType,
         uint32_t numDescriptorsPerHeap = 1024);
 
-    virtual ~DynamicDescriptorHeap();
+    virtual ~DynamicDescriptorHeap() = default;
 
     void StageDescriptors(uint32_t rootParameterIndex, uint32_t offset, uint32_t numDescriptors,
         D3D12_CPU_DESCRIPTOR_HANDLE srcDescriptor);

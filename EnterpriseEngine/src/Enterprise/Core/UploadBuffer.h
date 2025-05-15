@@ -16,7 +16,7 @@
 
 namespace Enterprise::Core::Graphics {
 
-class UploadBuffer {
+class ENTERPRISE_API UploadBuffer {
 public:
     struct Allocation {
         void * CPU;
@@ -66,8 +66,5 @@ private:
 
 };
 
-
-
-#endif //UPLOADBUFFER_H
-
 }
+#endif //UPLOADBUFFER_H
