@@ -113,7 +113,7 @@ std::shared_ptr<CommandList> CommandQueue::GetCommandList()
 }
 
 // Execute a command list.
-// Returns the fence value to wait for for this command list.
+// Returns the fence value to wait for for t    his command list.
 uint64_t CommandQueue::ExecuteCommandList(const std::shared_ptr<CommandList>& commandList)
 {
     return ExecuteCommandLists( std::vector<std::shared_ptr<CommandList> >( { commandList } ) );

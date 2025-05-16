@@ -17,7 +17,7 @@
 #include "DescriptorAllocator.h"
 
 namespace Enterprise::Core::Graphics {
-class ENTERPRISE_API DescriptorAllocatorPage : std::enable_shared_from_this<DescriptorAllocatorPage>{
+class ENTERPRISE_API DescriptorAllocatorPage : public std::enable_shared_from_this<DescriptorAllocatorPage>{
 public:
     DescriptorAllocatorPage( D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors);
 

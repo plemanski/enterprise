@@ -140,10 +140,10 @@ LRESULT W10Window::ProcessMessage(UINT msg, WPARAM wParam, LPARAM lParam)
         }
         case WM_PAINT:
         {
-            Core::Graphics::Renderer::IncrementFrameCount();
+            //Core::Graphics::Renderer::IncrementFrameCount();
 
-            events::TriggerEvent(events::AppUpdateEvent(0.0f, 0.0f, Core::Graphics::Renderer::GetFrameCount()));
-            events::TriggerEvent(events::AppRenderEvent(0.0f, 0.0f, Core::Graphics::Renderer::GetFrameCount()));
+            //events::TriggerEvent(events::AppUpdateEvent(0.0f, 0.0f, Core::Graphics::Renderer::GetFrameCount()));
+            //events::TriggerEvent(events::AppRenderEvent(0.0f, 0.0f, Core::Graphics::Renderer::GetFrameCount()));
             break;
         }
         // Credit: Mike Marcin
@@ -219,14 +219,18 @@ LRESULT W10Window::ProcessMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 bool W10Window::PumpEvents() const
 {
     MSG msg{};
-    while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+    while (WM_QUIT != msg.message)
     {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-        if (msg.message == WM_QUIT)
+        if(PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
         {
-            return false;
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        } else
+        {
+            events::TriggerEvent(events::AppUpdateEvent(0.0f, 0.0f, Core::Graphics::Renderer::GetFrameCount()));
+            events::TriggerEvent(events::AppRenderEvent(0.0f, 0.0f, Core::Graphics::Renderer::GetFrameCount()));
         }
+
     }
     return true;
 }

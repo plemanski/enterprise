@@ -11,3 +11,6 @@
 [submodule "EnterpriseEngine/vendor/DirectXTex"]
 	path = EnterpriseEngine/vendor/DirectXTex
 	url = https://github.com/Microsoft/DirectXTex
+[submodule "EnterpriseEngine/vendor/assimp"]
+	path = EnterpriseEngine/vendor/assimp
+	url = https://github.com/assimp/assimp

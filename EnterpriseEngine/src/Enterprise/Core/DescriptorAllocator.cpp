@@ -9,7 +9,7 @@
 namespace Enterprise::Core::Graphics {
 DescriptorAllocator::DescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptorsPerHeap)
     : m_HeapType(type)
-    , m_NumDescriptorsPerHeap()
+    , m_NumDescriptorsPerHeap( numDescriptorsPerHeap )
 {}
 
 std::shared_ptr<DescriptorAllocatorPage> DescriptorAllocator::CreateAllocatorPage()
@@ -28,7 +28,8 @@ DescriptorAllocation DescriptorAllocator::Allocate(uint32_t numDescriptors)
 
     DescriptorAllocation allocation;
 
-    for (auto heap = m_AvailableHeaps.begin(); heap != m_AvailableHeaps.end(); ++heap )
+    auto heap = m_AvailableHeaps.begin();
+    while (heap != m_AvailableHeaps.end())
     {
         auto allocatorPage = m_HeapPool[*heap];
 
@@ -36,7 +37,10 @@ DescriptorAllocation DescriptorAllocator::Allocate(uint32_t numDescriptors)
 
         if ( allocatorPage->NumFreeHandles() == 0 )
         {
-            heap = m_AvailableHeaps.erase( heap );
+            m_AvailableHeaps.erase( heap );
+        } else
+        {
+            ++heap;
         }
 
         if (!allocation.IsNull())

@@ -76,11 +76,38 @@ bool Renderer::LoadContent()
     auto commandList = m_CopyCommandQueue->GetCommandList();
     m_DemoCube = Mesh::CreateDemoCube(*commandList);
 
-    D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
-    dsvHeapDesc.NumDescriptors = 1;
-    dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-    dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    ThrowIfFailed(m_D3D12Device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_DSVHeap)));
+    //D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
+    //dsvHeapDesc.NumDescriptors = 1;
+    //dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+    //dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+    //ThrowIfFailed(m_D3D12Device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_DSVHeap)));
+    DXGI_FORMAT sdrFormat = DXGI_FORMAT_R16G16_FLOAT;
+    DXGI_FORMAT depthFormat = DXGI_FORMAT_D32_FLOAT;
+
+    auto colorDesc = CD3DX12_RESOURCE_DESC::Tex2D(sdrFormat, m_ClientWidth, m_ClientHeight);
+
+    colorDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+    D3D12_CLEAR_VALUE colorClearValue;
+    colorClearValue.Format = colorDesc.Format;
+    colorClearValue.Color[0] = 0.4f;
+    colorClearValue.Color[1] = 0.6f;
+    colorClearValue.Color[2] = 0.9f;
+    colorClearValue.Color[3] = 1.0f;
+
+    Texture sdrTexture = Texture(colorDesc, &colorClearValue, L"SDR-Tex");
+
+    auto depthDesc = CD3DX12_RESOURCE_DESC::Tex2D(depthFormat, m_ClientWidth, m_ClientHeight);
+    depthDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+    D3D12_CLEAR_VALUE depthClearValue;
+    depthClearValue.Format = depthDesc.Format;
+    depthClearValue.DepthStencil = { 1.0f, 0 };
+
+    Texture depthTexture = Texture(depthDesc, &depthClearValue, L"Depth-Tex");
+
+    m_RenderTarget.AttachTexture(AttachmentPoint::Color0, sdrTexture);
+    m_RenderTarget.AttachTexture(AttachmentPoint::DepthStencil, depthTexture);
 
     ComPtr<ID3DBlob> vertexShaderBlob;
     ThrowIfFailed(D3DReadFileToBlob(L"VertexShader.cso", &vertexShaderBlob));
@@ -143,14 +170,14 @@ bool Renderer::LoadContent()
 
     D3D12_RT_FORMAT_ARRAY rtvFormats = {};
     rtvFormats.NumRenderTargets = 1;
-    rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+    rtvFormats.RTFormats[0] = sdrFormat;
 
     pipelineStateStream.pRootSignature = m_GraphicsRootSignature.GetRootSignature().Get();
     pipelineStateStream.InputLayout = {inputLayout, _countof(inputLayout)};
     pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     pipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(vertexShaderBlob.Get());
     pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(pixelShaderBlob.Get());
-    pipelineStateStream.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+    pipelineStateStream.DSVFormat = depthFormat;
     pipelineStateStream.RTVFormats = rtvFormats;
 
     D3D12_PIPELINE_STATE_STREAM_DESC pipelineStateStreamDesc = {
@@ -163,7 +190,7 @@ bool Renderer::LoadContent()
 
     m_ContentLoaded = true;
 
-    ResizeDepthBuffer(m_ClientWidth, m_ClientHeight);
+    //ResizeDepthBuffer(m_ClientWidth, m_ClientHeight);
     return true;
 }
 
@@ -392,22 +419,17 @@ ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap( ComPtr<ID3D12Device2>      de
     return descriptorHeap;
 }
 
-void Renderer::UpdateRenderTargetViews( ComPtr<ID3D12Device2>   device,
-                                        ComPtr<IDXGISwapChain4> swapChain, ComPtr<ID3D12DescriptorHeap> descriptorHeap )
+void Renderer::UpdateRenderTargetViews()
 {
-    auto rtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(descriptorHeap->GetCPUDescriptorHandleForHeapStart());
-
     for (uint8_t i = 0; i < ms_NumFrames; ++i)
     {
         ComPtr<ID3D12Resource> backBuffer;
-        ThrowIfFailed(swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffer)));
+        ThrowIfFailed(m_SwapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffer)));
 
-        device->CreateRenderTargetView(backBuffer.Get(), nullptr, rtvHandle);
+        ResourceStateTracker::AddGlobalResourceState( backBuffer.Get(), D3D12_RESOURCE_STATE_COMMON );
 
-        m_BackBuffers[i] = backBuffer;
+        m_BackBufferTextures[i] = Texture(backBuffer, L"Backbuffer["+std::to_wstring(i)+L"]");
 
-        rtvHandle.Offset(rtvDescriptorSize);
     }
 }
 
@@ -505,7 +527,7 @@ void Renderer::Resize( uint32_t width, uint32_t height )
 
         m_CurrentBackBufferIndex = m_SwapChain->GetCurrentBackBufferIndex();
 
-        UpdateRenderTargetViews(m_D3D12Device, m_SwapChain, m_RTVDescriptorHeap);
+        UpdateRenderTargetViews();
     }
 }
 
@@ -543,11 +565,13 @@ void Renderer::Initialize( const Window* window )
 
     m_CurrentBackBufferIndex = m_SwapChain->GetCurrentBackBufferIndex();
 
-    for (UINT8 i = 0; i <D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++i)
+
+    for (UINT8 i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++i)
     {
         m_DescriptorAllocators[i] = std::make_unique<DescriptorAllocator>(static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(i));
     }
 
+    UpdateRenderTargetViews();
     ::ShowWindow(hWnd, SW_SHOW);
     ms_FrameCount = 0;
 }
@@ -560,6 +584,10 @@ void Renderer::Shutdown() const
 
 void Renderer::OnRenderEvent( const events::AppRenderEvent &event )
 {
+    if (!m_ContentLoaded)
+    {
+        return;
+    }
     auto commandList = m_DirectCommandQueue->GetCommandList();
     auto backBuffer = GetCurrentBackBuffer();
 

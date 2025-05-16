@@ -95,9 +95,7 @@ private:
 
     void Flush();
 
-    void UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device2>
-                                 , Microsoft::WRL::ComPtr<IDXGISwapChain4>
-                                 , Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>);
+    void UpdateRenderTargetViews();
 
     void TransitionResource(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
         Microsoft::WRL::ComPtr<ID3D12Resource>resource,
@@ -184,6 +182,7 @@ private:
     RenderTarget                                        m_RenderTarget;
     RootSignature                                       m_GraphicsRootSignature;
     static uint64_t                                     ms_FrameCount;
+
 };
 
 inline void ThrowIfFailed(HRESULT hr)
