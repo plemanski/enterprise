@@ -48,6 +48,8 @@ public:
     void DrawIndexed( uint32_t indexCountPerInstance, uint32_t instanceCount = 1,
                       uint32_t startIndex = 0, uint32_t        startVertex = 0, uint32_t startInstance = 0 );
 
+    void CopyResource( Microsoft::WRL::ComPtr<ID3D12Resource> dstRes, Microsoft::WRL::ComPtr<ID3D12Resource> srcRes );
+
     void CopyResource( Resource &destResource, const Resource &srcResource );
 
     void CopyTextureSubresource( const Texture &         texture, uint32_t firstSubResource, uint32_t numSubResources,
@@ -74,6 +76,9 @@ public:
      */
     void CopyIndexBuffer( IndexBuffer &indexBuffer, size_t numIndicies, DXGI_FORMAT indexFormat,
                           const void*  indexBufferData );
+
+    void TransitionBarrier( Microsoft::WRL::ComPtr<ID3D12Resource> resource, D3D12_RESOURCE_STATES stateAfter,
+                            UINT subResource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, bool flushBarriers = false  );
 
     template<typename T>
     void CopyIndexBuffer( IndexBuffer &indexBuffer, const std::vector<T> &indexBufferData )

@@ -28,11 +28,46 @@ using namespace Microsoft::WRL;
 
 using namespace DirectX;
 
+struct Transforms {
+    XMMATRIX ModelMatrix;
+    XMMATRIX ModelViewMatrix;
+    XMMATRIX InverseTransposeMatrix;
+    XMMATRIX ModelViewProjectionMatrix;
+};
+
+void XM_CALLCONV ComputeMatrices( FXMMATRIX model, CXMMATRIX view, CXMMATRIX viewProjection, Transforms &transforms )
+{
+    transforms.ModelMatrix = model;
+    transforms.ModelViewMatrix = model * view;
+    transforms.InverseTransposeMatrix = XMMatrixTranspose(XMMatrixInverse(nullptr, transforms.ModelViewMatrix));
+    transforms.ModelViewProjectionMatrix = model * viewProjection;
+}
+
+namespace VertexPositionNormalTexture {
+}
 
 uint64_t Renderer::ms_FrameCount = 0;
 
 Renderer* gs_pRenderer = nullptr;
 
+XMMATRIX XM_CALLCONV LookAtMatrix( FXMVECTOR Position, FXMVECTOR Direction, FXMVECTOR Up )
+{
+    assert(!XMVector3Equal( Direction, XMVectorZero() ));
+    assert(!XMVector3IsInfinite( Direction ));
+    assert(!XMVector3Equal( Up, XMVectorZero() ));
+    assert(!XMVector3IsInfinite( Up ));
+
+    XMVECTOR R2 = XMVector3Normalize(Direction);
+
+    XMVECTOR R0 = XMVector3Cross(Up, R2);
+    R0 = XMVector3Normalize(R0);
+
+    XMVECTOR R1 = XMVector3Cross(R2, R0);
+
+    XMMATRIX M(R0, R1, R2, Position);
+
+    return M;
+}
 
 void Renderer::UpdateBufferResource( ComPtr<ID3D12GraphicsCommandList2> commandList,
                                      ID3D12Resource** pDestinationResource,
@@ -74,18 +109,21 @@ void Renderer::UpdateBufferResource( ComPtr<ID3D12GraphicsCommandList2> commandL
 bool Renderer::LoadContent()
 {
     auto commandList = m_CopyCommandQueue->GetCommandList();
-    m_DemoCube = Mesh::CreateDemoCube(*commandList);
+    m_DemoCube = Mesh::CreateDemoCube(*commandList, 1);
 
+    commandList->LoadTextureFromFile(m_DefaultTexture, L"C:/dev/Enterprise/EnterpriseEngine/resources/assets/textures/DefaultWhite.bmp", false);
     //D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
     //dsvHeapDesc.NumDescriptors = 1;
     //dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
     //dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
     //ThrowIfFailed(m_D3D12Device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_DSVHeap)));
-    DXGI_FORMAT sdrFormat = DXGI_FORMAT_R16G16_FLOAT;
+    m_CopyCommandQueue->ExecuteCommandList(commandList);
+
+    DXGI_FORMAT sdrFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
     DXGI_FORMAT depthFormat = DXGI_FORMAT_D32_FLOAT;
 
     auto colorDesc = CD3DX12_RESOURCE_DESC::Tex2D(sdrFormat, m_ClientWidth, m_ClientHeight);
-
+    colorDesc.MipLevels = 1;
     colorDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
     D3D12_CLEAR_VALUE colorClearValue;
@@ -95,16 +133,17 @@ bool Renderer::LoadContent()
     colorClearValue.Color[2] = 0.9f;
     colorClearValue.Color[3] = 1.0f;
 
-    Texture sdrTexture = Texture(colorDesc, &colorClearValue, L"SDR-Tex");
+    Texture sdrTexture = Texture(colorDesc, &colorClearValue, L"SDR-Render Target");
 
     auto depthDesc = CD3DX12_RESOURCE_DESC::Tex2D(depthFormat, m_ClientWidth, m_ClientHeight);
     depthDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+    depthDesc.MipLevels = 1;
 
     D3D12_CLEAR_VALUE depthClearValue;
     depthClearValue.Format = depthDesc.Format;
-    depthClearValue.DepthStencil = { 1.0f, 0 };
+    depthClearValue.DepthStencil = {1.0f, 0};
 
-    Texture depthTexture = Texture(depthDesc, &depthClearValue, L"Depth-Tex");
+    Texture depthTexture = Texture(depthDesc, &depthClearValue, L"Depth-Render Target");
 
     m_RenderTarget.AttachTexture(AttachmentPoint::Color0, sdrTexture);
     m_RenderTarget.AttachTexture(AttachmentPoint::DepthStencil, depthTexture);
@@ -122,7 +161,11 @@ bool Renderer::LoadContent()
             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
         },
         {
-            "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
+            "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
+            D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+        },
+        {
+            "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
         },
     };
@@ -138,14 +181,18 @@ bool Renderer::LoadContent()
             D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
             D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
             D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;
+            D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS ;
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[1];
-    rootParameters[0].InitAsConstants(sizeof(XMMATRIX) / 4, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
+    CD3DX12_DESCRIPTOR_RANGE1 descriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+
+    CD3DX12_STATIC_SAMPLER_DESC linearRepeatSampler(0, D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR);
+
+    CD3DX12_ROOT_PARAMETER1 rootParameters[2];
+    rootParameters[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);
+    rootParameters[1].InitAsDescriptorTable(1, &descriptorRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-    rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, rootSignatureFlags);
+    rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, &linearRepeatSampler, rootSignatureFlags);
 
     //Serialize root signature
     ComPtr<ID3DBlob> rootSignatureBlob;
@@ -166,6 +213,7 @@ bool Renderer::LoadContent()
         CD3DX12_PIPELINE_STATE_STREAM_PS                    PS;
         CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT  DSVFormat;
         CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
+        CD3DX12_PIPELINE_STATE_STREAM_SAMPLE_DESC           SampleDesc;
     } pipelineStateStream;
 
     D3D12_RT_FORMAT_ARRAY rtvFormats = {};
@@ -185,9 +233,9 @@ bool Renderer::LoadContent()
     };
     ThrowIfFailed(m_D3D12Device->CreatePipelineState(&pipelineStateStreamDesc, IID_PPV_ARGS(&m_PipelineState)));
 
-    auto fenceValue = m_CopyCommandQueue->ExecuteCommandList(commandList);
-    m_CopyCommandQueue->WaitForFenceValue(fenceValue);
-
+    //auto fenceValue = m_CopyCommandQueue->ExecuteCommandList(commandList);
+    //m_CopyCommandQueue->WaitForFenceValue(fenceValue);
+    m_CopyCommandQueue->Flush();
     m_ContentLoaded = true;
 
     //ResizeDepthBuffer(m_ClientWidth, m_ClientHeight);
@@ -224,7 +272,7 @@ void Renderer::ResizeDepthBuffer( uint32_t width, uint32_t height )
         dsv.Flags = D3D12_DSV_FLAG_NONE;
 
         m_D3D12Device->CreateDepthStencilView(m_DepthBuffer.Get(), &dsv,
-                                         m_DSVHeap->GetCPUDescriptorHandleForHeapStart());
+                                              m_DSVHeap->GetCPUDescriptorHandleForHeapStart());
     }
 }
 
@@ -251,9 +299,9 @@ DescriptorAllocation Renderer::AllocateDescriptors( D3D12_DESCRIPTOR_HEAP_TYPE t
 
 void Renderer::ReleaseStaleDescriptors( uint64_t finishedFrame )
 {
-    for ( int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++i )
+    for (int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++i)
     {
-        m_DescriptorAllocators[i]->ReleaseStaleDescriptors( finishedFrame );
+        m_DescriptorAllocators[i]->ReleaseStaleDescriptors(finishedFrame);
     }
 }
 
@@ -426,10 +474,10 @@ void Renderer::UpdateRenderTargetViews()
         ComPtr<ID3D12Resource> backBuffer;
         ThrowIfFailed(m_SwapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffer)));
 
-        ResourceStateTracker::AddGlobalResourceState( backBuffer.Get(), D3D12_RESOURCE_STATE_COMMON );
+        ResourceStateTracker::AddGlobalResourceState(backBuffer.Get(), D3D12_RESOURCE_STATE_COMMON);
 
-        m_BackBufferTextures[i] = Texture(backBuffer, L"Backbuffer["+std::to_wstring(i)+L"]");
-
+        m_BackBufferTextures[i] = Texture(backBuffer, L"Backbuffer[" + std::to_wstring(i) + L"]");
+        m_BackBufferTextures[i].CreateViews();
     }
 }
 
@@ -465,18 +513,18 @@ void Renderer::OnUpdateEvent( const events::AppUpdateEvent &event )
     }
 
     float          angle = static_cast<float>(event.TotalTime * 90.0);
-    const XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
-    m_ModelMatrix = XMMatrixRotationAxis(rotationAxis, XMConvertToRadians(angle));
+    //const XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
+    //m_ModelMatrix = XMMatrixRotationAxis(rotationAxis, XMConvertToRadians(angle));
 
-    const XMVECTOR eyePosition = XMVectorSet(0, 0, -10, 1);
-    const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
-    const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 0);
+    //const XMVECTOR eyePosition = XMVectorSet(0, 0, -10, 1);
+    //const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
+    //const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 0);
 
-    m_ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
+    //m_ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
 
-    float aspectRatio = m_ClientWidth / static_cast<float>(m_ClientHeight);
+    //float aspectRatio = m_ClientWidth / static_cast<float>(m_ClientHeight);
 
-    m_ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(m_FoV), aspectRatio, 0.5f, 100.0f);
+    //m_ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(m_FoV), aspectRatio, 0.5f, 100.0f);
 }
 
 void Renderer::TransitionResource( ComPtr<ID3D12GraphicsCommandList2> commandList, ComPtr<ID3D12Resource> resource,
@@ -547,7 +595,11 @@ void Renderer::Initialize( const Window* window )
     HWND hWnd = static_cast<HWND>(window->GetNativeWindow());
 
     ::GetWindowRect(hWnd, &m_WindowRect);
+    float width = window->GetWidth();
+    float height = window->GetHeight();
+    float aspect =  width / height;
 
+    m_Camera.SetProjection(45.0, aspect, 0.01f, 100.0f);
     ComPtr<IDXGIAdapter4> dxgiAdapter4 = GetAdapter(FALSE);
 
     if (dxgiAdapter4)
@@ -589,7 +641,6 @@ void Renderer::OnRenderEvent( const events::AppRenderEvent &event )
         return;
     }
     auto commandList = m_DirectCommandQueue->GetCommandList();
-    auto backBuffer = GetCurrentBackBuffer();
 
     // Clear render targets.
     {
@@ -618,14 +669,27 @@ void Renderer::OnRenderEvent( const events::AppRenderEvent &event )
     //// Bind render targets to the Output Merger
     //commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
-    //// Update MVP matrix
-    XMMATRIX mvpMatrix = XMMatrixMultiply(m_ModelMatrix, m_ViewMatrix);
-    mvpMatrix = XMMatrixMultiply(mvpMatrix, m_ProjectionMatrix);
-    commandList->SetGraphics32BitConstants(0, 1, &mvpMatrix);
+    //// TODO: Update Transforms and bind to root signature
+    XMMATRIX translationMatrix    = XMMatrixTranslation( 4.0f, 2.0f, 4.0f );
+    XMMATRIX rotationMatrix       = XMMatrixIdentity();
+    XMMATRIX scaleMatrix          = XMMatrixScaling( 4.0f, 4.0f, 4.0f );
+    XMMATRIX worldMatrix         = scaleMatrix * rotationMatrix * translationMatrix;
+    XMMATRIX viewMatrix           = m_Camera.GetViewMatrix();
+    m_ProjectionMatrix = viewMatrix * m_Camera.GetProjectionMatrix();
+
+    Transforms transform;
+    // TODO: Implement Camera
+    ComputeMatrices(worldMatrix, viewMatrix, m_ProjectionMatrix, transform);
+    commandList->SetGraphicsDynamicConstantBuffer(0, sizeof(Transforms), &transform);
+    commandList->SetShaderResourceView(1, 0,
+                                       m_DefaultTexture,
+                                       D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     //commandList->DrawIndexedInstanced(_countof(g_Indicies), 1, 0, 0, 0);
     m_DemoCube->Draw(*commandList);
+    m_DirectCommandQueue->ExecuteCommandList(commandList);
+    auto tex = m_RenderTarget.GetTexture(AttachmentPoint::Color0);
 
-    Present();
+    Present(m_RenderTarget.GetTexture(AttachmentPoint::Color0));
     //Present
     //{
     //    TransitionResource(commandList, backBuffer,
@@ -671,7 +735,7 @@ UINT Renderer::Present( const Texture &texture )
 
     m_CurrentBackBufferIndex = m_SwapChain->GetCurrentBackBufferIndex();
 
-    m_DirectCommandQueue -> WaitForFenceValue(m_FenceValues[m_CurrentBackBufferIndex] );
+    m_DirectCommandQueue->WaitForFenceValue(m_FenceValues[m_CurrentBackBufferIndex]);
 
     ReleaseStaleDescriptors(m_FrameValues[m_CurrentBackBufferIndex]);
 
@@ -709,6 +773,7 @@ Renderer::Renderer( uint32_t width, uint32_t height )
       , m_AppUpdateHandler([this]( const events::AppUpdateEvent &e ) { OnUpdateEvent(e); })
       , m_AppRenderHandler([this]( const events::AppRenderEvent &e ) { OnRenderEvent(e); })
       , m_AppWindowResizeEventHandler([this]( const events::AppWindowResizeEvent &e ) { OnResizeEvent(e); })
+      , m_Camera()
 {
     events::Subscribe<events::AppRenderEvent>(m_AppRenderHandler);
     events::Subscribe<events::AppUpdateEvent>(m_AppUpdateHandler);
@@ -719,7 +784,7 @@ void Renderer::IncrementFrameCount()
     ++ms_FrameCount;
 }
 
-Renderer* Renderer::Create( const Window* window )
+Renderer *Renderer::Create( const Window* window )
 {
     gs_pRenderer = new Renderer(window->GetWidth(), window->GetHeight());
     gs_pRenderer->Initialize(window);
@@ -729,7 +794,6 @@ Renderer* Renderer::Create( const Window* window )
 
 Renderer *Renderer::Get()
 {
-
     return gs_pRenderer;
 }
 }

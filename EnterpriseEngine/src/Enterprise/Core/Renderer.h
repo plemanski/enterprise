@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <chrono>
 
+#include "Camera.h"
 #include "DescriptorAllocator.h"
 #include "CommandQueue.h"
 #include "DescriptorAllocation.h"
@@ -40,6 +41,8 @@ public:
 
     [[nodiscard]] static uint64_t GetFrameCount() { return ms_FrameCount; };
     static void IncrementFrameCount();
+
+    const Camera *GetCamera() const { return &m_Camera; };
 
     static Renderer* Create(const Window* window);
 
@@ -177,12 +180,13 @@ private:
     events::EventHandler<events::AppRenderEvent>        m_AppRenderHandler;
     events::EventHandler<events::AppWindowResizeEvent>  m_AppWindowResizeEventHandler;
 
+    Texture                                             m_DefaultTexture;
     Texture                                             m_BackBufferTextures[BUFFER_COUNT];
     std::unique_ptr<Mesh>                               m_DemoCube;
     RenderTarget                                        m_RenderTarget;
     RootSignature                                       m_GraphicsRootSignature;
     static uint64_t                                     ms_FrameCount;
-
+    Camera                                              m_Camera;
 };
 
 inline void ThrowIfFailed(HRESULT hr)

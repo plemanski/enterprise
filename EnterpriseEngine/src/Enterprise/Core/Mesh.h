@@ -20,6 +20,17 @@ struct VertexPosColor {
     DirectX::XMFLOAT3 Color;
 };
 
+struct VertexPosNormalTexture {
+    VertexPosNormalTexture(DirectX::XMFLOAT3 pos, DirectX::XMFLOAT3 norm, DirectX::XMFLOAT2 texCoord)
+        : Position(pos)
+        , Normal(norm)
+        , TexCoord(texCoord)
+    {}
+    DirectX::XMFLOAT3 Position;
+    DirectX::XMFLOAT3 Normal;
+    DirectX::XMFLOAT2 TexCoord;
+};
+
 struct Mat {
     DirectX::XMMATRIX ModelMatrix;
     DirectX::XMMATRIX ModelViewMatrix;
@@ -58,9 +69,9 @@ public:
 
     //void CreateMesh( CommandList &commandList, VertexPosColor* vertexArray, WORD* indexArray );
 
-    static std::unique_ptr<Mesh> CreateDemoCube( CommandList &commandList );
+    static std::unique_ptr<Mesh> CreateDemoCube( CommandList &commandList, UINT size );
 
-    void Initialize( CommandList &commandList, std::vector<VertexPosColor> vertexArray, std::vector<DWORD> indexArray );
+    void Initialize( CommandList &commandList, std::vector<VertexPosNormalTexture> vertexArray, std::vector<DWORD> indexArray );
 
 private:
     IndexBuffer  m_IndexBuffer;

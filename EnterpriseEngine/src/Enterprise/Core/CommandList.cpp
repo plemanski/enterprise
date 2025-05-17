@@ -136,12 +136,22 @@ void CommandList::DrawIndexed( uint32_t indexCountPerInstance, uint32_t instance
                                              startVertex);
 }
 
+void CommandList::CopyResource(Microsoft::WRL::ComPtr<ID3D12Resource> dstRes, Microsoft::WRL::ComPtr<ID3D12Resource> srcRes)
+{
+    TransitionBarrier(dstRes, D3D12_RESOURCE_STATE_COPY_DEST);
+    TransitionBarrier(srcRes, D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+    FlushResourceBarriers();
+
+    m_D3D12CommandList->CopyResource(dstRes.Get(), srcRes.Get());
+
+    TrackResource(dstRes);
+    TrackResource(srcRes);
+}
+
 void CommandList::CopyResource( Resource &destResource, const Resource &srcResource )
 {
-    TransitionBarrier(destResource, D3D12_RESOURCE_STATE_COPY_DEST);
-    TransitionBarrier(srcResource, D3D12_RESOURCE_STATE_COPY_SOURCE);
-
-    m_D3D12CommandList->CopyResource(destResource.GetD3D12Resource().Get(), srcResource.GetD3D12Resource().Get());
+    this->CopyResource(destResource.GetD3D12Resource().Get(), srcResource.GetD3D12Resource().Get());
 }
 
 void CommandList::CopyTextureSubresource( const Texture &texture, uint32_t firstSubResource, uint32_t numSubResources,
@@ -239,6 +249,23 @@ void CommandList::CopyIndexBuffer( IndexBuffer& indexBuffer, size_t numIndicies,
 {
     size_t indexSizeInBytes = indexFormat == DXGI_FORMAT_R16_UINT ? 2 : 4;
     CopyBuffer( indexBuffer, numIndicies, indexSizeInBytes, indexBufferData );
+}
+
+void CommandList::TransitionBarrier( Microsoft::WRL::ComPtr<ID3D12Resource> resource, D3D12_RESOURCE_STATES stateAfter,
+                                     UINT subresource, bool flushBarriers )
+{
+    if ( resource )
+    {
+        // The "before" state is not important. It will be resolved by the resource state tracker.
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition( resource.Get(), D3D12_RESOURCE_STATE_COMMON, stateAfter,
+                                                             subresource );
+        m_ResourceStateTracker->ResourceBarrier( barrier );
+    }
+
+    if ( flushBarriers )
+    {
+        FlushResourceBarriers();
+    }
 }
 
 void CommandList::TransitionBarrier( const Resource &resource, D3D12_RESOURCE_STATES stateAfter, UINT subResource,

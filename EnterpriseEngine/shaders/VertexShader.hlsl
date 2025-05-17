@@ -1,28 +1,36 @@
-struct ModelViewProjection
+struct Transforms
 {
-    matrix MVP;
+    matrix ModelMatrix;
+    matrix ModelViewMatrix;
+    matrix InverseTransposeModelViewMatrix;
+    matrix ModelViewProjectionMatrix;
 };
 
-ConstantBuffer<ModelViewProjection> ModelViewProjectionCB : register(b0);
+ConstantBuffer<Transforms> TransformsCB : register(b0);
 
-struct VertexPosColor
+struct VertexPositionNormalTexture
 {
     float3 Position    : POSITION;
-    float3 Color       : COLOR;
+    float3 Normal      : NORMAL;
+    float2 TexCoord    : TEXCOORD;
 };
 
 struct VertexShaderOutput
 {
-    float4 Color       : COLOR;
+    float4 PositionVS  : POSITION;
+    float3 NormalVS    : NORMAL;
+    float2 TexCoord    : TEXCOORD;
     float4 Position    : SV_Position;
 };
 
-VertexShaderOutput main(VertexPosColor IN)
+VertexShaderOutput main(VertexPositionNormalTexture IN)
 {
     VertexShaderOutput OUT;
 
-    OUT.Position= mul(ModelViewProjectionCB.MVP, float4(IN.Position, 1.0f));
-    OUT.Color = float4(IN.Color, 1.0f);
+    OUT.Position = mul( TransformsCB.ModelViewProjectionMatrix, float4(IN.Position, 1.0f));
+    OUT.PositionVS = mul( TransformsCB.ModelViewMatrix, float4(IN.Position, 1.0f));
+    OUT.NormalVS = mul((float3x3)TransformsCB.InverseTransposeModelViewMatrix, IN.Normal);
+    OUT.TexCoord = IN.TexCoord;
 
     return OUT;
 }
