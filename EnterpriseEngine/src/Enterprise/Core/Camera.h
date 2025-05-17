@@ -13,6 +13,7 @@ namespace Enterprise::Core {
 class Camera {
 public:
     Camera();
+    Camera(uint32_t width, uint32_t height);
     virtual ~Camera() = default;
 
     DirectX::XMMATRIX GetViewMatrix() const;

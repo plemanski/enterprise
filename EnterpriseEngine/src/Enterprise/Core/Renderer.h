@@ -53,9 +53,6 @@ public:
 
     [[nodiscard]] Microsoft::WRL::ComPtr<ID3D12Device2> GetDevice() const { return m_D3D12Device; };
 
-    [[nodiscard]] Microsoft::WRL::ComPtr<ID3D12Resource> GetCurrentBackBuffer() const;
-
-    [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRenderTargetView() const;
     [[nodiscard]] UINT GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE heapType ) const;
 
     DescriptorAllocation AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors = 1);
@@ -92,32 +89,9 @@ private:
     UINT Present( const Texture& texture = Texture());
     void OnResizeEvent(const events::AppWindowResizeEvent&);
 
-    void DXRender();
-
     void Resize(uint32_t width, uint32_t height);
 
-    void Flush();
-
     void UpdateRenderTargetViews();
-
-    void TransitionResource(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
-        Microsoft::WRL::ComPtr<ID3D12Resource>resource,
-        D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
-
-    void ClearRTV(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
-        D3D12_CPU_DESCRIPTOR_HANDLE rtv, FLOAT* clearColor);
-
-    void ClearDepth(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
-        D3D12_CPU_DESCRIPTOR_HANDLE dsv, FLOAT depth = 1.0f);
-
-    void UpdateBufferResource(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
-        ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
-        size_t numElements, size_t elementSize, const void* bufferData,
-        D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE);
-
-    void ResizeDepthBuffer(uint32_t width, uint32_t height);
-
-
 
     bool LoadContent();
 
@@ -137,26 +111,10 @@ private:
     uint64_t                                            m_FrameValues[BUFFER_COUNT] = {};
 
     Microsoft::WRL::ComPtr<ID3D12Device2>               m_D3D12Device;
-    Microsoft::WRL::ComPtr<ID3D12CommandQueue>          m_CommandQueue;
     Microsoft::WRL::ComPtr<IDXGISwapChain4>             m_SwapChain;
-    Microsoft::WRL::ComPtr<ID3D12Resource>              m_BackBuffers[ms_NumFrames];
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>        m_RTVDescriptorHeap;
-    UINT                                                m_RTVDescriptorSize = 0;
     UINT                                                m_CurrentBackBufferIndex = 0;
 
     RECT                                                m_WindowRect {};
-
-    Microsoft::WRL::ComPtr<ID3D12Resource>              m_VertexBuffer;
-    D3D12_VERTEX_BUFFER_VIEW                            m_VertexBufferView;
-
-    Microsoft::WRL::ComPtr<ID3D12Resource>              m_IndexBuffer;
-    D3D12_INDEX_BUFFER_VIEW                             m_IndexBufferView;
-
-    Microsoft::WRL::ComPtr<ID3D12Resource>              m_DepthBuffer;
-
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>        m_DSVHeap;
-
-    Microsoft::WRL::ComPtr<ID3D12RootSignature>         m_RootSignature;
 
     Microsoft::WRL::ComPtr<ID3D12PipelineState>         m_PipelineState;
 

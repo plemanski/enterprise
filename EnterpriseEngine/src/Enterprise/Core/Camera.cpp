@@ -19,6 +19,17 @@ Camera::Camera()
     pData->m_Translation = XMVectorZero();
 }
 
+Camera::Camera( uint32_t width, uint32_t height )
+    :  m_Fov(45.0f)
+    , m_AspectRatio ( static_cast<float>(width)  / static_cast<float>(height) )
+    , m_NearClip(0.1f)
+    , m_FarClip(100.0f)
+{
+    pData = static_cast<AlignedData *>(_aligned_malloc(sizeof(AlignedData), 16));
+    pData->m_RotationQ = XMQuaternionIdentity();
+    pData->m_Translation = XMVectorZero();
+}
+
 XMMATRIX Camera::GetViewMatrix() const
 {
     UpdateViewMatrix();
