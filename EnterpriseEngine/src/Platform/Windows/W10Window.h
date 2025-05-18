@@ -13,10 +13,10 @@
 #include "imgui_impl_win32.h"
 
 namespace Enterprise {
-
 class ENTERPRISE_API W10Window : public Window {
 public:
-    W10Window(const WindowProps &props);
+    W10Window( const WindowProps &props );
+
     virtual ~W10Window() = default;
 
     void OnUpdate() override;
@@ -24,19 +24,22 @@ public:
     unsigned int GetWidth() const override { return m_Data.Width; }
     unsigned int GetHeight() const override { return m_Data.Height; }
 
-    inline void SetCallback(const EventCallbackFn& callback) override { m_Data.Callback = callback; }
+    inline void SetCallback( const EventCallbackFn &callback ) override { m_Data.Callback = callback; }
 
-    void SetVSync(bool enabled) override;
+    void SetVSync( bool enabled ) override;
+
     bool IsVSync() const override;
 
-    static std::unique_ptr<Window> Create(WindowProps& props);
+    static std::unique_ptr<Window> Create( WindowProps &props );
 
-    void* GetNativeWindow( ) const override { return m_windowHandle; }
+    void *GetNativeWindow() const override { return m_windowHandle; }
 
-    inline void SetWindowHandle(HWND hWnd) { m_windowHandle = hWnd; }
+    inline void SetWindowHandle( HWND hWnd ) { m_windowHandle = hWnd; }
     inline HWND GetWindowHandle() { return m_windowHandle; }
 
-    LRESULT ProcessMessage(UINT msg, WPARAM wParam, LPARAM lParam);
+    LRESULT ProcessMessage( UINT msg, WPARAM wParam, LPARAM lParam );
+
+    void ProcessRawInput() const;
 
     bool PumpEvents() const override;
 
@@ -45,26 +48,26 @@ public:
     static constexpr LONG MinHeight = 240;
 
 private:
+    virtual void Init( const WindowProps &props );
 
-    virtual void Init(const WindowProps& props);
     virtual void Shutdown();
 
-    void RegisterWindowClass(HINSTANCE hInst, const wchar_t *windowClassName);
-
+    void RegisterWindowClass( HINSTANCE hInst, const wchar_t* windowClassName );
 
 private:
     struct WindowData {
-        std::string Title;
-        UINT Width, Height;
-        bool VSync;
-        bool pauseAppWhenInactive;
+        std::string     Title;
+        UINT            Width, Height;
+        bool            VSync;
+        bool            pauseAppWhenInactive;
         EventCallbackFn Callback;
     };
-    WindowData m_Data;
-    WNDCLASSEXW m_wc{};
-    HWND m_windowHandle{};
+
+    UINT                m_CBSize;
+    PRAWINPUT           m_RawInputCB;
+    WindowData          m_Data;
+    WNDCLASSEXW         m_wc{};
+    HWND                m_windowHandle{};
     std::weak_ptr<RECT> m_windowRect{};
 };
-
 }
-

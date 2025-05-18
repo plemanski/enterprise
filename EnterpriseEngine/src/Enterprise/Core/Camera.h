@@ -16,13 +16,15 @@ public:
     Camera(uint32_t width, uint32_t height);
     virtual ~Camera() = default;
 
-    DirectX::XMMATRIX GetViewMatrix() const;
-    DirectX::XMMATRIX GetProjectionMatrix() const;
+    [[nodiscard]] DirectX::XMMATRIX GetLookAtViewMatrix(DirectX::XMFLOAT3* point) const;
+    [[nodiscard]] DirectX::XMMATRIX GetViewMatrix() const;
+    [[nodiscard]] DirectX::XMMATRIX GetProjectionMatrix() const;
     void SetProjection( float fovY, float aspectRatio, float nearClip, float farClip);
 
 
 protected:
     virtual void UpdateViewMatrix() const;
+    virtual void UpdateLookAtMatrix(DirectX::XMFLOAT3 *point) const;
     virtual void UpdateProjectionMatrix() const;
 
 protected:

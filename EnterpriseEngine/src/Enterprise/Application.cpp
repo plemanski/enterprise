@@ -21,7 +21,10 @@ Application::~Application()
 
 void Application::Run()
 {
-    while (m_window->PumpEvents()) {};
+    while (m_window->PumpEvents())
+    {
+
+    };
 }
 
 

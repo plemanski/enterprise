@@ -15,6 +15,7 @@
 #include "CommandList.h"
 #include "CommandQueue.h"
 #include "DescriptorAllocator.h"
+#include "Light.h"
 #include "directx/d3dx12_barriers.h"
 #include "directx/d3dx12_root_signature.h"
 #include "Resource.h"
@@ -422,9 +423,10 @@ bool Renderer::LoadContent()
 
     CD3DX12_STATIC_SAMPLER_DESC linearRepeatSampler(0, D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[2];
+    CD3DX12_ROOT_PARAMETER1 rootParameters[3];
     rootParameters[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);
     rootParameters[1].InitAsDescriptorTable(1, &descriptorRange, D3D12_SHADER_VISIBILITY_PIXEL);
+    rootParameters[2].InitAsShaderResourceView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
 
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
     rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, &linearRepeatSampler, rootSignatureFlags);
@@ -512,20 +514,38 @@ void Renderer::OnRenderEvent( const events::AppRenderEvent &event )
     commandList->SetPipelineState(m_PipelineState);
     commandList->SetGraphicsRootSignature(m_GraphicsRootSignature);
 
-    XMMATRIX translationMatrix    = XMMatrixTranslation( 4.0f, 2.0f, 4.0f );
-    XMMATRIX rotationMatrix       = XMMatrixIdentity();
-    XMMATRIX scaleMatrix          = XMMatrixScaling( 4.0f, 4.0f, 4.0f );
+    XMMATRIX translationMatrix    = XMMatrixTranslation( 0.0f, 0.0f, 5.0f );
+    XMMATRIX rotationMatrix       = XMMatrixRotationY(0.785398);
+    XMMATRIX scaleMatrix          = XMMatrixScaling( 1.0f, 1.0f, 1.0f );
     XMMATRIX worldMatrix         = scaleMatrix * rotationMatrix * translationMatrix;
-    XMMATRIX viewMatrix           = m_Camera.GetViewMatrix();
+    auto point = XMFLOAT3(0.0,0.0,5.0);
+    //XMMATRIX viewMatrix           = m_Camera.GetViewMatrix();
+    XMMATRIX viewMatrix           = m_Camera.GetLookAtViewMatrix(&point);
     m_ProjectionMatrix = viewMatrix * m_Camera.GetProjectionMatrix();
 
     Transforms transform;
-    // TODO: Implement Camera
     ComputeMatrices(worldMatrix, viewMatrix, m_ProjectionMatrix, transform);
     commandList->SetGraphicsDynamicConstantBuffer(0, sizeof(Transforms), &transform);
+    // Bind texture
     commandList->SetShaderResourceView(1, 0,
                                        m_DefaultTexture,
                                        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+    LightSB light{};
+    XMFLOAT4 lightCol (0.9f, 0.9f, 0.9f, 0.0f);
+    XMFLOAT4 lightPos(-2.0f, 4.0, -1.0, 0.0f);
+    XMVECTOR lightDir( XMLoadFloat4(&lightPos) - XMVectorSet(0,0,0,0));
+
+    light.PositionWS = lightPos;
+    XMVECTOR positionWS = XMLoadFloat4(&lightPos);
+    XMVECTOR positionVS = XMVector3TransformCoord(positionWS, viewMatrix);
+    XMStoreFloat4(&light.PositionVS, positionVS);
+    XMVECTOR lightDirVS = XMVector3Normalize( XMVector3TransformNormal(lightDir, viewMatrix));
+    XMStoreFloat4(&light.DirectionWS, lightDir);
+    XMStoreFloat4(&light.DirectionVS, lightDir);
+    light.Colour = lightCol;
+    // Bind lights
+    commandList->SetGraphicsDynamicStructuredBuffer(2, 1, sizeof(light), &light);
     m_DemoCube->Draw(*commandList);
     m_DirectCommandQueue->ExecuteCommandList(commandList);
 

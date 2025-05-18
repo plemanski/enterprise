@@ -6,10 +6,14 @@
 
 #include "W10Window.h"
 
+#include <windowsx.h>
+
+#include "Application.h"
 #include "Log.h"
 #include "Core/Renderer.h"
 #include "Events/ApplicationEvent.h"
 #include "Events/EventManager.h"
+#include "Events/MouseEvent.h"
 
 
 namespace Enterprise {
@@ -17,12 +21,15 @@ namespace Enterprise {
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 W10Window::W10Window(const WindowProps &props)
+    : m_CBSize(8)
+    , m_RawInputCB ( static_cast<PRAWINPUT>(_aligned_malloc(m_CBSize, 64)))
 {
     m_Data = {};
     m_Data.Title = props.Title;
     m_Data.Width = props.Width;
     m_Data.Height = props.Height;
-    m_Data.pauseAppWhenInactive = true;
+    m_Data.pauseAppWhenInactive = false;
+
 }
 
 void W10Window::OnUpdate()
@@ -101,6 +108,19 @@ std::unique_ptr<Window> Window::Create(const WindowProps& props)
         EE_CORE_ERROR("Window handle is null.");
     }
     window->SetWindowHandle(hWnd);
+
+    RAWINPUTDEVICE Rid[1];
+    Rid[0].usUsagePage = 0x01;  // HID_USAGE_PAGE_GENERIC
+    Rid[0].usUsage = 0x02;      // HID_USAGE_GENERIC_MOUSE
+    Rid[0].dwFlags = 0;
+    Rid[0].hwndTarget = hWnd;
+
+
+    if (RegisterRawInputDevices(Rid, 2, sizeof(Rid[0]) == FALSE))
+    {
+        EE_CORE_WARN("Unable to get HID devices error: {}", GetLastError());
+    }
+    EE_CORE_INFO("Raw input device registered");
     return window;
 }
 
@@ -138,6 +158,21 @@ LRESULT W10Window::ProcessMessage(UINT msg, WPARAM wParam, LPARAM lParam)
             }
             break;
         }
+        case WM_INPUT:
+        {
+            unsigned size = sizeof(RAWINPUT);
+            static RAWINPUT raw[sizeof(RAWINPUT)];
+            GetRawInputData((HRAWINPUT)lParam, RID_INPUT, raw, &size, sizeof(RAWINPUTHEADER));
+
+            if (raw->header.dwType == RIM_TYPEMOUSE)
+            {
+                events::MouseCoords coords{};
+                coords.x = raw->data.mouse.lLastX;
+                coords.y = raw->data.mouse.lLastY;
+                EE_CORE_INFO("Mouse coords: {}, {}",coords.x, coords.y);
+                events::QueueEvent(std::make_unique<events::MouseEvent>(coords));
+            }
+        }
         case WM_PAINT:
         {
             //Core::Graphics::Renderer::IncrementFrameCount();
@@ -150,7 +185,7 @@ LRESULT W10Window::ProcessMessage(UINT msg, WPARAM wParam, LPARAM lParam)
         case WM_SIZING:
         {
             // maintain aspec ratio when resizing
-            auto& rect = *reinterpret_cast<RECT*>(lParam);
+            auto &      rect = *reinterpret_cast<RECT *>(lParam);
             const float aspectRatio = float(m_Data.Width) / m_Data.Height;
             const DWORD style = GetWindowLong(m_windowHandle, GWL_STYLE);
             const DWORD exStyle = GetWindowLong(m_windowHandle, GWL_EXSTYLE);
@@ -216,21 +251,52 @@ LRESULT W10Window::ProcessMessage(UINT msg, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(m_windowHandle, msg, wParam, lParam);
 }
 
+void W10Window::ProcessRawInput() const
+{
+    if (m_RawInputCB == nullptr)
+    {
+        EE_CORE_WARN("Not enough memory for raw input");
+        return;
+    }
+    while (true)
+    {
+        // DIS BROKEN
+        UINT nInput = GetRawInputBuffer(m_RawInputCB, PUINT(&m_CBSize), sizeof(RAWINPUTHEADER));
+        if (nInput == 0)
+        {
+            break;
+        }
+        PRAWINPUT pri = m_RawInputCB;
+        typedef unsigned __int64 QWORD;
+        for (UINT i = 0; i < nInput; ++i)
+        {
+            EE_CORE_INFO("Processing item from input buffer: {}", i);
+            pri = NEXTRAWINPUTBLOCK(pri);
+        }
+    }
+}
+
 bool W10Window::PumpEvents() const
 {
     MSG msg{};
     while (WM_QUIT != msg.message)
     {
+//        // Need to peek all messages other than WM_INPUT.
+//        ProcessRawInput();
         if(PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
         {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
-        } else
+        }
+//        if (PeekMessage(&msg, nullptr, WM_INPUT + 1, std::numeric_limits<UINT>::max(), PM_REMOVE))
+//        {
+//            TranslateMessage(&msg);
+//            DispatchMessage(&msg);
+//        }
         {
             events::TriggerEvent(events::AppUpdateEvent(0.0f, 0.0f, Core::Graphics::Renderer::GetFrameCount()));
             events::TriggerEvent(events::AppRenderEvent(0.0f, 0.0f, Core::Graphics::Renderer::GetFrameCount()));
         }
-
     }
     return true;
 }
