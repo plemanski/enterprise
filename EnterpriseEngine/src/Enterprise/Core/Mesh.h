@@ -21,21 +21,21 @@ struct VertexPosColor {
 };
 
 struct VertexPosNormalTexture {
-    VertexPosNormalTexture(DirectX::XMFLOAT3 pos, DirectX::XMFLOAT3 norm, DirectX::XMFLOAT2 texCoord)
+    VertexPosNormalTexture(): Position(), Normal(), TexCoord()
+    {
+
+    };
+
+    VertexPosNormalTexture( DirectX::XMFLOAT3 pos, DirectX::XMFLOAT3 norm, DirectX::XMFLOAT2 texCoord )
         : Position(pos)
-        , Normal(norm)
-        , TexCoord(texCoord)
-    {}
+          , Normal(norm)
+          , TexCoord(texCoord)
+    {
+    }
+
     DirectX::XMFLOAT3 Position;
     DirectX::XMFLOAT3 Normal;
     DirectX::XMFLOAT2 TexCoord;
-};
-
-struct Mat {
-    DirectX::XMMATRIX ModelMatrix;
-    DirectX::XMMATRIX ModelViewMatrix;
-    DirectX::XMMATRIX InverseTransposeModelViewMatrix;
-    DirectX::XMMATRIX ModelViewProjectionMatrix;
 };
 
 static VertexPosColor g_Vertices[8] = {
@@ -62,21 +62,23 @@ static WORD g_Indicies[36] =
 class ENTERPRISE_API Mesh {
 public:
     Mesh();
-
+    Mesh(const std::vector<VertexPosNormalTexture>& vertArray,const std::vector<uint32_t>& indices, CommandList* commandList);
     ~Mesh() = default;
 
     void Draw( CommandList &commandList );
 
     //void CreateMesh( CommandList &commandList, VertexPosColor* vertexArray, WORD* indexArray );
 
-    static std::unique_ptr<Mesh> CreateDemoCube( CommandList &commandList, UINT size );
+    static std::unique_ptr<Mesh> CreateDemoCube( CommandList& commandList, UINT size );
 
-    void Initialize( CommandList &commandList, std::vector<VertexPosNormalTexture> vertexArray, std::vector<DWORD> indexArray );
+    void Initialize( CommandList &      commandList, std::vector<VertexPosNormalTexture> vertexArray,
+                     std::vector<DWORD> indexArray );
 
 private:
-    IndexBuffer  m_IndexBuffer;
-    VertexBuffer m_VertexBuffer;
-    uint32_t     m_IndexCount;
+    IndexBuffer                         m_IndexBuffer;
+    VertexBuffer                        m_VertexBuffer;
+    uint32_t                            m_IndexCount;
+    std::shared_ptr<Texture>            m_pTexture;
 };
 }
 

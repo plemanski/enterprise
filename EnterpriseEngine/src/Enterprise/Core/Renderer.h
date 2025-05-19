@@ -24,6 +24,7 @@
 #include "HighResClock.h"
 #include "Log.h"
 #include "Mesh.h"
+#include "Model.h"
 #include "RenderTarget.h"
 #include "RootSignature.h"
 #include "../Window.h"
@@ -145,6 +146,7 @@ private:
     RootSignature                                       m_GraphicsRootSignature;
     static uint64_t                                     ms_FrameCount;
     Camera                                              m_Camera;
+    std::unique_ptr<Model>                              m_Model;
 };
 
 inline void ThrowIfFailed(HRESULT hr)

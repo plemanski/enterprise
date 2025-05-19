@@ -20,6 +20,7 @@
 #include "directx/d3dx12_root_signature.h"
 #include "Resource.h"
 #include "../Window.h"
+#include "assimp/Importer.hpp"
 #include "Events/EventManager.h"
 #include "spdlog/fmt/bundled/base.h"
 
@@ -344,8 +345,11 @@ void Renderer::Initialize( const Window* window )
 
 bool Renderer::LoadContent()
 {
-    auto commandList = m_CopyCommandQueue->GetCommandList();
-    m_DemoCube = Mesh::CreateDemoCube(*commandList, 1);
+    // m_DemoCube = Mesh::CreateDemoCube(*commandList, 1);
+    auto commandQueue = GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
+    auto commandList = commandQueue->GetCommandList();
+    m_Model = std::make_unique<Model>();
+    Model::ImportModel("C:/dev/Enterprise/EnterpriseEngine/resources/assets/models/Fighter jet.glb", m_Model.get(), commandList.get());
 
     commandList->LoadTextureFromFile(m_DefaultTexture, L"C:/dev/Enterprise/EnterpriseEngine/resources/assets/textures/DefaultWhite.bmp", false);
     //D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
@@ -353,7 +357,7 @@ bool Renderer::LoadContent()
     //dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
     //dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
     //ThrowIfFailed(m_D3D12Device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_DSVHeap)));
-    m_CopyCommandQueue->ExecuteCommandList(commandList);
+    commandQueue->ExecuteCommandList(commandList);
 
     DXGI_FORMAT sdrFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
     DXGI_FORMAT depthFormat = DXGI_FORMAT_D32_FLOAT;
@@ -431,16 +435,9 @@ bool Renderer::LoadContent()
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
     rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, &linearRepeatSampler, rootSignatureFlags);
 
-    //Serialize root signature
     ComPtr<ID3DBlob> rootSignatureBlob;
     ComPtr<ID3DBlob> errorBlob;
     m_GraphicsRootSignature.SetRootSignatureDesc(rootSignatureDesc.Desc_1_1, featureData.HighestVersion);
-    //ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc,
-    //    featureData.HighestVersion, &rootSignatureBlob, &errorBlob));
-
-    //// Create root signature
-    //ThrowIfFailed(m_Device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(),
-    //    rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
 
     struct PipelineStateStream {
         CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE        pRootSignature;
@@ -470,12 +467,9 @@ bool Renderer::LoadContent()
     };
     ThrowIfFailed(m_D3D12Device->CreatePipelineState(&pipelineStateStreamDesc, IID_PPV_ARGS(&m_PipelineState)));
 
-    //auto fenceValue = m_CopyCommandQueue->ExecuteCommandList(commandList);
-    //m_CopyCommandQueue->WaitForFenceValue(fenceValue);
     m_CopyCommandQueue->Flush();
     m_ContentLoaded = true;
 
-    //ResizeDepthBuffer(m_ClientWidth, m_ClientHeight);
     return true;
 }
 
@@ -508,17 +502,14 @@ void Renderer::OnRenderEvent( const events::AppRenderEvent &event )
     commandList->SetViewport(m_RenderTarget.GetViewport());
     commandList->SetScissorRect(m_ScissorRect);
 
-    VertexBuffer vertexBuffer;
-    IndexBuffer  indexBuffer;
-
     commandList->SetPipelineState(m_PipelineState);
     commandList->SetGraphicsRootSignature(m_GraphicsRootSignature);
 
-    XMMATRIX translationMatrix    = XMMatrixTranslation( 0.0f, 0.0f, 5.0f );
-    XMMATRIX rotationMatrix       = XMMatrixRotationY(0.785398);
-    XMMATRIX scaleMatrix          = XMMatrixScaling( 1.0f, 1.0f, 1.0f );
+    XMMATRIX translationMatrix    = XMMatrixTranslation( 0.0f, 0.0f, 10.0f );
+    XMMATRIX rotationMatrix       = XMMatrixRotationZ(0.7);
+    XMMATRIX scaleMatrix          = XMMatrixScaling( 0.02f, 0.02f, 0.02f );
     XMMATRIX worldMatrix         = scaleMatrix * rotationMatrix * translationMatrix;
-    auto point = XMFLOAT3(0.0,0.0,5.0);
+    auto point = XMFLOAT3(0.0,0.0,0.0);
     //XMMATRIX viewMatrix           = m_Camera.GetViewMatrix();
     XMMATRIX viewMatrix           = m_Camera.GetLookAtViewMatrix(&point);
     m_ProjectionMatrix = viewMatrix * m_Camera.GetProjectionMatrix();
@@ -527,29 +518,30 @@ void Renderer::OnRenderEvent( const events::AppRenderEvent &event )
     ComputeMatrices(worldMatrix, viewMatrix, m_ProjectionMatrix, transform);
     commandList->SetGraphicsDynamicConstantBuffer(0, sizeof(Transforms), &transform);
     // Bind texture
-    commandList->SetShaderResourceView(1, 0,
-                                       m_DefaultTexture,
-                                       D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+     commandList->SetShaderResourceView(1, 0,
+                                        m_DefaultTexture,
+                                        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-    LightSB light{};
-    XMFLOAT4 lightCol (0.9f, 0.9f, 0.9f, 0.0f);
-    XMFLOAT4 lightPos(-2.0f, 4.0, -1.0, 0.0f);
-    XMVECTOR lightDir( XMLoadFloat4(&lightPos) - XMVectorSet(0,0,0,0));
+     LightSB light{};
+     XMFLOAT4 lightCol (0.9f, 0.9f, 0.9f, 0.0f);
+     XMFLOAT4 lightPos(-2.0f, 4.0, -1.0, 0.0f);
+     XMVECTOR lightDir( XMLoadFloat4(&lightPos) - XMVectorSet(0,0,0,0));
 
-    light.PositionWS = lightPos;
-    XMVECTOR positionWS = XMLoadFloat4(&lightPos);
-    XMVECTOR positionVS = XMVector3TransformCoord(positionWS, viewMatrix);
-    XMStoreFloat4(&light.PositionVS, positionVS);
-    XMVECTOR lightDirVS = XMVector3Normalize( XMVector3TransformNormal(lightDir, viewMatrix));
-    XMStoreFloat4(&light.DirectionWS, lightDir);
-    XMStoreFloat4(&light.DirectionVS, lightDir);
-    light.Colour = lightCol;
-    // Bind lights
-    commandList->SetGraphicsDynamicStructuredBuffer(2, 1, sizeof(light), &light);
-    m_DemoCube->Draw(*commandList);
-    m_DirectCommandQueue->ExecuteCommandList(commandList);
+     light.PositionWS = lightPos;
+     XMVECTOR positionWS = XMLoadFloat4(&lightPos);
+     XMVECTOR positionVS = XMVector3TransformCoord(positionWS, viewMatrix);
+     XMStoreFloat4(&light.PositionVS, positionVS);
+     XMVECTOR lightDirVS = XMVector3Normalize( XMVector3TransformNormal(lightDir, viewMatrix));
+     XMStoreFloat4(&light.DirectionWS, lightDir);
+     XMStoreFloat4(&light.DirectionVS, lightDir);
+     light.Colour = lightCol;
+     // Bind lights
+     commandList->SetGraphicsDynamicStructuredBuffer(2, 1, sizeof(light), &light);
+     //m_DemoCube->Draw(*commandList);
+     m_Model->Draw(*commandList);
+     m_DirectCommandQueue->ExecuteCommandList(commandList);
 
-    Present(m_RenderTarget.GetTexture(AttachmentPoint::Color0));
+         Present(m_RenderTarget.GetTexture(AttachmentPoint::Color0));
 }
 
 UINT Renderer::Present( const Texture &texture )

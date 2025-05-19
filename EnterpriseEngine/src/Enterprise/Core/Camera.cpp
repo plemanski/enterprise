@@ -27,7 +27,7 @@ Camera::Camera( uint32_t width, uint32_t height )
 {
     pData = static_cast<AlignedData *>(_aligned_malloc(sizeof(AlignedData), 16));
     pData->m_RotationQ = XMQuaternionIdentity();
-    pData->m_Translation = XMVectorSet(0.0,1.0,2.0,0);
+    pData->m_Translation = XMVectorSet(0.0,1.0, -15.0,0);
 }
 
 XMMATRIX Camera::GetLookAtViewMatrix( XMFLOAT3* point ) const
