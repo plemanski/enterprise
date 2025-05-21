@@ -82,6 +82,10 @@ private:
 
 class ENTERPRISE_API Texture : public Resource {
 public:
+
+    int32_t m_Width;
+    int32_t m_Height;
+    int32_t m_ComponentsPerPixel;
     explicit Texture( const std::wstring &name = L"" );
 
     explicit Texture( const D3D12_RESOURCE_DESC &resourceDesc,
@@ -161,6 +165,7 @@ private:
     mutable std::unordered_map<size_t, DescriptorAllocation> m_UnorderedAccessViews;
     mutable std::mutex                                       m_ShaderResourceViewsMutex;
     mutable std::mutex                                       m_UnorderedAccessViewsMutex;
+
 };
 }
 

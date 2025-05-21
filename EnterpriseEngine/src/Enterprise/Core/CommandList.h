@@ -155,6 +155,8 @@ public:
     void ResolveSubresource( Resource &dstRes, const Resource &srcRes, uint32_t dstSubresource = 0,
                              uint32_t  srcSubresource = 0 );
 
+    void LoadEmbeddedTexture( Texture* texture, const uint8_t* imageData, size_t size, const std::wstring &textureName );
+
     void LoadTextureFromFile( Texture &texture, const std::wstring &fileName, bool useSrgb );
 
     std::shared_ptr<CommandList> GetGenerateMipsCommandList() const { return m_ComputeCommandList; }

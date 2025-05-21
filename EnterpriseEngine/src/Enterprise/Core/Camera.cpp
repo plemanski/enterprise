@@ -15,19 +15,19 @@ Camera::Camera()
     , m_FarClip(100.0f)
 {
     pData = static_cast<AlignedData *>(_aligned_malloc(sizeof(AlignedData), 16));
-    pData->m_RotationQ = XMQuaternionIdentity();
-    pData->m_Translation = XMVectorZero();
+    XMStoreFloat4(&pData->m_RotationQ,XMQuaternionIdentity());
+    XMStoreFloat4(&pData->m_Translation, XMVectorZero());
 }
 
 Camera::Camera( uint32_t width, uint32_t height )
-    :  m_Fov(80.0f)
+    :  m_Fov(90.0f)
     , m_AspectRatio ( static_cast<float>(width)  / static_cast<float>(height) )
     , m_NearClip(0.1f)
     , m_FarClip(100.0f)
 {
     pData = static_cast<AlignedData *>(_aligned_malloc(sizeof(AlignedData), 16));
-    pData->m_RotationQ = XMQuaternionIdentity();
-    pData->m_Translation = XMVectorSet(0.0,1.0, -15.0,0);
+    XMStoreFloat4(&pData->m_RotationQ,XMQuaternionIdentity());
+    pData->m_Translation = XMFLOAT4(2.0,5.0, -15.0,0);
 }
 
 XMMATRIX Camera::GetLookAtViewMatrix( XMFLOAT3* point ) const
@@ -48,6 +48,11 @@ XMMATRIX Camera::GetProjectionMatrix() const
     return pData->m_ProjectionMatrix;
 }
 
+XMFLOAT4 Camera::GetCameraLocation() const
+{
+    return pData->m_Translation;
+}
+
 
 void Camera::SetProjection( float fovY, float aspectRatio, float nearClip, float farClip )
 {
@@ -60,8 +65,8 @@ void Camera::SetProjection( float fovY, float aspectRatio, float nearClip, float
 
 void Camera::UpdateViewMatrix() const
 {
-    XMMATRIX rotationMatrix = XMMatrixTranspose(XMMatrixRotationQuaternion( pData->m_RotationQ ));
-    XMMATRIX translationMatrix = XMMatrixTranslationFromVector( -(pData->m_Translation) );
+    XMMATRIX rotationMatrix = XMMatrixTranspose(XMMatrixRotationQuaternion( XMLoadFloat4(&pData->m_RotationQ) ));
+    XMMATRIX translationMatrix = XMMatrixTranslationFromVector( -XMLoadFloat4(&pData->m_Translation) );
 
     pData->m_ViewMatrix = translationMatrix * rotationMatrix;
 }
@@ -69,7 +74,7 @@ void Camera::UpdateViewMatrix() const
 void Camera::UpdateLookAtMatrix(XMFLOAT3* point) const
 {
     auto data = pData;
-    pData->m_ViewMatrix = XMMatrixLookAtLH(data->m_Translation, XMLoadFloat3(point), XMVectorSet(0.0,1.0,0.0,0.0));
+    pData->m_ViewMatrix = XMMatrixLookAtLH(XMLoadFloat4(&data->m_Translation), XMLoadFloat3(point), XMVectorSet(0.0,1.0,0.0,0.0));
 }
 
 void Camera::UpdateProjectionMatrix() const

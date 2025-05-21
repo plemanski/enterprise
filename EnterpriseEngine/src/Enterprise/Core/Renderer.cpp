@@ -349,7 +349,7 @@ bool Renderer::LoadContent()
     auto commandQueue = GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
     auto commandList = commandQueue->GetCommandList();
     m_Model = std::make_unique<Model>();
-    Model::ImportModel("C:/dev/Enterprise/EnterpriseEngine/resources/assets/models/Fighter jet.glb", m_Model.get(), commandList.get());
+    Model::ImportModel("C:/dev/Enterprise/EnterpriseEngine/resources/assets/models/Fighter Jet.glb", m_Model.get(), commandList.get(), L"jet");
 
     commandList->LoadTextureFromFile(m_DefaultTexture, L"C:/dev/Enterprise/EnterpriseEngine/resources/assets/textures/DefaultWhite.bmp", false);
     //D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
@@ -482,6 +482,7 @@ void Renderer::Shutdown() const
 
 void Renderer::OnRenderEvent( const events::AppRenderEvent &event )
 {
+
     if (!m_ContentLoaded)
     {
         return;
@@ -518,30 +519,33 @@ void Renderer::OnRenderEvent( const events::AppRenderEvent &event )
     ComputeMatrices(worldMatrix, viewMatrix, m_ProjectionMatrix, transform);
     commandList->SetGraphicsDynamicConstantBuffer(0, sizeof(Transforms), &transform);
     // Bind texture
-     commandList->SetShaderResourceView(1, 0,
-                                        m_DefaultTexture,
-                                        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    commandList->SetShaderResourceView(1, 0,
+                                       m_DefaultTexture,
+                                       D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-     LightSB light{};
-     XMFLOAT4 lightCol (0.9f, 0.9f, 0.9f, 0.0f);
-     XMFLOAT4 lightPos(-2.0f, 4.0, -1.0, 0.0f);
-     XMVECTOR lightDir( XMLoadFloat4(&lightPos) - XMVectorSet(0,0,0,0));
+    LightSB light{};
+    XMFLOAT4 lightCol (0.9f, 0.9f, 0.9f, 0.0f);
+    XMFLOAT4 lightPos(-9.0f, 4.0, -1.0, 0.0f);
+    XMVECTOR lightDir( XMLoadFloat4(&lightPos) - XMVectorSet(0,0,0,0));
+    light.AmbientStrength = 0.2;
+    light.SpecularStrength = 0.5;
+    light.CameraWS = m_Camera.GetCameraLocation();
 
-     light.PositionWS = lightPos;
-     XMVECTOR positionWS = XMLoadFloat4(&lightPos);
-     XMVECTOR positionVS = XMVector3TransformCoord(positionWS, viewMatrix);
-     XMStoreFloat4(&light.PositionVS, positionVS);
-     XMVECTOR lightDirVS = XMVector3Normalize( XMVector3TransformNormal(lightDir, viewMatrix));
-     XMStoreFloat4(&light.DirectionWS, lightDir);
-     XMStoreFloat4(&light.DirectionVS, lightDir);
-     light.Colour = lightCol;
-     // Bind lights
-     commandList->SetGraphicsDynamicStructuredBuffer(2, 1, sizeof(light), &light);
-     //m_DemoCube->Draw(*commandList);
-     m_Model->Draw(*commandList);
-     m_DirectCommandQueue->ExecuteCommandList(commandList);
+    light.PositionWS = lightPos;
+    XMVECTOR positionWS = XMLoadFloat4(&lightPos);
+    XMVECTOR positionVS = XMVector3TransformCoord(positionWS, viewMatrix);
+    XMStoreFloat4(&light.PositionVS, positionVS);
+    XMVECTOR lightDirVS = XMVector3Normalize( XMVector3TransformNormal(lightDir, viewMatrix));
+    XMStoreFloat4(&light.DirectionWS, lightDir);
+    XMStoreFloat4(&light.DirectionVS, lightDir);
+    light.Colour = lightCol;
+    // Bind lights
+    commandList->SetGraphicsDynamicStructuredBuffer(2, 1, sizeof(light), &light);
+    //m_DemoCube->Draw(*commandList);
+    m_Model->Draw(*commandList);
+    m_DirectCommandQueue->ExecuteCommandList(commandList);
 
-         Present(m_RenderTarget.GetTexture(AttachmentPoint::Color0));
+    Present(m_RenderTarget.GetTexture(AttachmentPoint::Color0));
 }
 
 UINT Renderer::Present( const Texture &texture )

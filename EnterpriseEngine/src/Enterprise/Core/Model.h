@@ -31,7 +31,7 @@ public:
 
     aiNode *ProcessNode( const aiScene* scene, aiNode* node, Model* model, CommandList* commandList );
 
-    static bool ImportModel( const std::string &pFile, Model* model, CommandList* commandList );
+    static bool ImportModel( const std::string &pFile, Model* model, CommandList* commandList, const std::wstring &modelName );
 
     void Draw( CommandList &commandList ) const;
 

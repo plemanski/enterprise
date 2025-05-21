@@ -19,6 +19,7 @@ public:
     [[nodiscard]] DirectX::XMMATRIX GetLookAtViewMatrix(DirectX::XMFLOAT3* point) const;
     [[nodiscard]] DirectX::XMMATRIX GetViewMatrix() const;
     [[nodiscard]] DirectX::XMMATRIX GetProjectionMatrix() const;
+    [[nodiscard]] DirectX::XMFLOAT4 GetCameraLocation() const;
     void SetProjection( float fovY, float aspectRatio, float nearClip, float farClip);
 
 
@@ -29,9 +30,9 @@ protected:
 
 protected:
     XM_ALIGNED_DATA(16) struct AlignedData {
-        DirectX::XMVECTOR m_Translation;
+        DirectX::XMFLOAT4 m_Translation;
 
-        DirectX::XMVECTOR m_RotationQ;
+        DirectX::XMFLOAT4 m_RotationQ;
         DirectX::XMMATRIX m_ViewMatrix, m_InverseViewMatrix;
         DirectX::XMMATRIX m_ProjectionMatrix, m_InverseProjectionMatrix;
     };

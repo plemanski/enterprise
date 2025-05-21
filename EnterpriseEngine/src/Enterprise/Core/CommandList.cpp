@@ -477,6 +477,93 @@ void CommandList::ResolveSubresource( Resource& dstRes, const Resource& srcRes, 
     TrackResource( dstRes );
 }
 
+void CommandList::LoadEmbeddedTexture( Texture* texture, const uint8_t* imageData, size_t size, const std::wstring &textureName)
+{
+    std::lock_guard<std::mutex> lock(ms_TextureCacheMutex);
+    auto iter = ms_TextureCache.find(textureName);
+    if (iter != ms_TextureCache.end())
+    {
+        texture->SetD3D12Resource(iter->second, nullptr);
+        texture->CreateViews();
+        texture->SetName(textureName);
+    } else
+    {
+        DirectX::TexMetadata metadata{};
+        DirectX::ScratchImage scratchImage;
+        ThrowIfFailed(DirectX::LoadFromWICMemory(imageData, size, DirectX::WIC_FLAGS::WIC_FLAGS_NONE, &metadata, scratchImage));
+        D3D12_RESOURCE_DESC textureDesc = {};
+        switch (metadata.dimension)
+        {
+            case DirectX::TEX_DIMENSION_TEXTURE1D:
+                textureDesc = CD3DX12_RESOURCE_DESC::Tex1D(
+                    metadata.format,
+                    static_cast<UINT64>(metadata.width),
+                    static_cast<UINT16>(metadata.arraySize)
+                );
+                break;
+            case DirectX::TEX_DIMENSION_TEXTURE2D:
+                textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(
+                    metadata.format,
+                    static_cast<UINT64>(metadata.width),
+                    static_cast<UINT>(metadata.height),
+                    static_cast<UINT16>(metadata.arraySize)
+                );
+                break;
+            case DirectX::TEX_DIMENSION_TEXTURE3D:
+                textureDesc = CD3DX12_RESOURCE_DESC::Tex3D(
+                    metadata.format,
+                    static_cast<UINT64>(metadata.width),
+                    static_cast<UINT>(metadata.height),
+                    static_cast<UINT16>(metadata.arraySize)
+                );
+            default:
+                EE_CORE_ERROR("Invalid texture dimension.");
+                throw std::exception("Invalid texture dimension");
+        }
+        auto                                   device = Renderer::Get()->GetDevice();
+        Microsoft::WRL::ComPtr<ID3D12Resource> textureResource;
+
+        ThrowIfFailed(device->CreateCommittedResource(
+                &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+                D3D12_HEAP_FLAG_NONE,
+                &textureDesc,
+                D3D12_RESOURCE_STATE_COMMON,
+                nullptr,
+                IID_PPV_ARGS(&textureResource))
+        );
+
+        texture->SetD3D12Resource(textureResource, nullptr);
+        texture->CreateViews();
+        texture->SetName(textureName);
+
+        ResourceStateTracker::AddGlobalResourceState(textureResource.Get(), D3D12_RESOURCE_STATE_COMMON);
+        std::vector<D3D12_SUBRESOURCE_DATA> subresources(scratchImage.GetImageCount());
+        const DirectX::Image*               pImages = scratchImage.GetImages();
+        for (UINT i = 0; i < scratchImage.GetImageCount(); ++i)
+        {
+            auto &subresource = subresources[i];
+            subresource.RowPitch = pImages[i].rowPitch;
+            subresource.SlicePitch = pImages[i].slicePitch;
+            subresource.pData = pImages[i].pixels;
+        }
+
+        CopyTextureSubresource(
+            *texture,
+            0,
+            static_cast<uint32_t>(subresources.size()),
+            subresources.data()
+        );
+
+        if (subresources.size() < textureResource->GetDesc().MipLevels)
+        {
+            // TODO: finish mips
+            //GenerateMips(*texture);
+        }
+        ms_TextureCache[textureName] = textureResource.Get();
+    }
+
+}
+
 void CommandList::LoadTextureFromFile( Texture &texture, const std::wstring &fileName, bool useSrgb )
 {
     std::filesystem::path filePath(fileName);

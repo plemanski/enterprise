@@ -8,6 +8,7 @@
 #include <intsafe.h>
 
 #include "IndexBuffer.h"
+#include "Material.h"
 #include "VertexBuffer.h"
 #include "../Core.h"
 
@@ -74,11 +75,14 @@ public:
     void Initialize( CommandList &      commandList, std::vector<VertexPosNormalTexture> vertexArray,
                      std::vector<DWORD> indexArray );
 
+    void AddMaterial( const Material &mat) { m_Materials.push_back(std::move(mat));};
+
 private:
     IndexBuffer                         m_IndexBuffer;
     VertexBuffer                        m_VertexBuffer;
     uint32_t                            m_IndexCount;
     std::shared_ptr<Texture>            m_pTexture;
+    std::vector<Material>               m_Materials;
 };
 }
 
